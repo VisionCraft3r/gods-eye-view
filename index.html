@@ -128,16 +128,21 @@
       </svg>
     </button>
     <section id="morocco-pack-sheet" hidden aria-label="Morocco settings">
-      <header>
-        <div>
-          <p class="morocco-pack-kicker">Kingdom pack</p>
-          <h2>Morocco</h2>
-        </div>
-        <button type="button" id="morocco-pack-enable" aria-pressed="false">Turn pack on</button>
+      <header class="morocco-pack-search">
+        <p class="morocco-pack-kicker">Where to?</p>
+        <h2>Morocco</h2>
+        <p id="morocco-pack-country" class="morocco-pack-status morocco-pack-pin"></p>
       </header>
-      <button type="button" id="morocco-pack-fly">Fly to Morocco</button>
+      <div class="morocco-pack-toggle-row">
+        <span>Show on the globe</span>
+        <button type="button" id="morocco-pack-enable" aria-pressed="false" aria-label="Show on the globe">Turn pack on</button>
+      </div>
+      <div id="morocco-pack-cities" class="morocco-pack-tiles"></div>
+      <p class="morocco-pack-label">Places</p>
+      <div id="morocco-pack-kinds" class="morocco-pack-chips"></div>
+      <p class="morocco-pack-label">Live feeds</p>
+      <div id="morocco-pack-live" class="morocco-pack-chips"></div>
       <div id="morocco-pack-brief" class="morocco-pack-brief">
-        <p id="morocco-pack-country" class="morocco-pack-status"></p>
         <p id="morocco-pack-status" class="morocco-pack-status">Air quality — waiting</p>
         <p id="morocco-pack-weather" class="morocco-pack-status"></p>
         <p id="morocco-pack-marine" class="morocco-pack-status"></p>
@@ -146,16 +151,11 @@
         <p id="morocco-pack-prayer" class="morocco-pack-status"></p>
         <p id="morocco-pack-quake" class="morocco-pack-status"></p>
       </div>
-      <p class="morocco-pack-label">Cities</p>
-      <div id="morocco-pack-cities" class="morocco-pack-chips"></div>
-      <p class="morocco-pack-label">Places</p>
-      <div id="morocco-pack-kinds" class="morocco-pack-chips"></div>
-      <p class="morocco-pack-label">Live feeds</p>
-      <div id="morocco-pack-live" class="morocco-pack-chips"></div>
       <p class="morocco-pack-label">Nearby Wikipedia</p>
       <ul id="morocco-pack-wiki"></ul>
       <p class="morocco-pack-label">Official open data</p>
       <ul id="morocco-pack-catalog"></ul>
+      <button type="button" id="morocco-pack-fly">Fly to Morocco</button>
     </section>
   </aside>
 

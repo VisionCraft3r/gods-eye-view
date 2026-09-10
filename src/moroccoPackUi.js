@@ -1,7 +1,7 @@
 /**
- * Bottom-left Morocco flag + country settings sheet.
- * Pattern: compact flag control that opens a glass map-options sheet
- * (Grab / Slopes), with live OSM places and companion globe layers.
+ * Bottom-left Morocco flag + city sheet.
+ * Layout follows inDrive's map home (sheet over the map, destination
+ * field, service tiles, lime primary) and Glovo's circular category chips.
  */
 
 import * as Cesium from 'cesium';
@@ -200,9 +200,13 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
       if (!city) continue;
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'morocco-pack-chip';
+      button.className = cityId === 'morocco' ? 'morocco-pack-tile morocco-pack-tile-wide' : 'morocco-pack-tile';
       button.dataset.city = cityId;
-      button.textContent = city.name;
+      const title = document.createElement('strong');
+      title.textContent = city.name;
+      const blurb = document.createElement('span');
+      blurb.textContent = cityId === 'morocco' ? 'Whole kingdom' : 'City rides';
+      button.append(title, blurb);
       button.addEventListener('click', () => {
         if (!state.enabled) {
           state.enabled = true;
