@@ -384,6 +384,44 @@ function writeOverpassDisk(cacheKey, payload) {
     .catch((err) => console.warn('[Overpass Proxy] disk cache write failed:', err?.message || err));
 }
 
+
+/** Generic JSON disk cache under `.gev-cache/<subdir>/` (Morocco, USGS, etc.). */
+function gevDiskPath(subdir, key) {
+  const safe = String(key).replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 180);
+  return path.join(process.cwd(), '.gev-cache', subdir, `${safe}.json`);
+}
+
+async function readGevDiskJson(subdir, key, maxAgeMs) {
+  try {
+    const raw = await fsp.readFile(gevDiskPath(subdir, key), 'utf8');
+    const payload = JSON.parse(raw);
+    if (!payload || payload.data === undefined || !Number.isFinite(payload.cachedAt)) return null;
+    if (Date.now() - payload.cachedAt > maxAgeMs) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function writeGevDiskJson(subdir, key, data) {
+  const file = gevDiskPath(subdir, key);
+  fsp.mkdir(path.dirname(file), { recursive: true })
+    .then(() => fsp.writeFile(file, JSON.stringify({ cachedAt: Date.now(), data })))
+    .catch((err) => console.warn(`[GEV cache] disk write failed (${subdir}):`, err?.message || err));
+}
+
+async function readGevDiskJsonStale(subdir, key) {
+  try {
+    const raw = await fsp.readFile(gevDiskPath(subdir, key), 'utf8');
+    const payload = JSON.parse(raw);
+    if (!payload || payload.data === undefined) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+
 /**
  * Resolve every cache/coalescing layer before admitting a request to the local
  * upstream rate limiter. The injected limiter callback is invoked exactly once
@@ -3365,114 +3403,261 @@ function gbfsCacheControl(pathname) {
  *
  * @returns {import('vite').Plugin}
  */
+const _gbfsStationInfoCache = new Map();
+const GBFS_STATION_INFO_CACHE_MS = 10 * 60_000;
+
+
+
+function hashedAssetCacheHeaders() {
+  function install(middlewares) {
+    middlewares.use((req, res, next) => {
+      const url = req.url || '';
+      if (url.startsWith('/assets/') && /\.[a-f0-9]{8,}\./i.test(url)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else if (url.startsWith('/api/')) {
+        if (!res.getHeader('Cache-Control')) {
+          res.setHeader('Cache-Control', 'no-store');
+        }
+      }
+      next();
+    });
+  }
+  return {
+    name: 'gev-hashed-asset-cache',
+    configureServer(server) { install(server.middlewares); },
+    configurePreviewServer(server) { install(server.middlewares); },
+  };
+}
+
+function earthquakesProxy() {
+  const USGS_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
+  let mem = null;
+  let inflight = null;
+  const TTL_MS = 10 * 60_000;
+
+  function install(middlewares) {
+    middlewares.use('/api/earthquakes', async (req, res) => {
+      try {
+        if (req.method !== 'GET') {
+          res.writeHead(405, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+          return;
+        }
+        const now = Date.now();
+        if (mem && now - mem.at < TTL_MS) {
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=300',
+            'X-GEV-Cache': 'MEM',
+          });
+          res.end(mem.body);
+          return;
+        }
+        const disk = await readGevDiskJson('usgs-earthquakes', 'all_day', TTL_MS);
+        if (disk) {
+          const body = typeof disk.data === 'string' ? disk.data : JSON.stringify(disk.data);
+          mem = { at: disk.cachedAt, body };
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=300',
+            'X-GEV-Cache': 'DISK',
+          });
+          res.end(body);
+          return;
+        }
+        if (!inflight) {
+          inflight = (async () => {
+            const upstream = await fetch(USGS_URL, {
+              headers: { Accept: 'application/json', 'User-Agent': 'gods-eye-view-earthquakes/1.0' },
+              signal: AbortSignal.timeout(20000),
+            });
+            if (!upstream.ok) throw new Error(`USGS HTTP ${upstream.status}`);
+            const body = await upstream.text();
+            mem = { at: Date.now(), body };
+            try {
+              writeGevDiskJson('usgs-earthquakes', 'all_day', JSON.parse(body));
+            } catch {
+              writeGevDiskJson('usgs-earthquakes', 'all_day', body);
+            }
+            return body;
+          })().finally(() => { inflight = null; });
+        }
+        const body = await inflight;
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=300',
+          'X-GEV-Cache': 'MISS',
+        });
+        res.end(body);
+      } catch (error) {
+        const stale = await readGevDiskJsonStale('usgs-earthquakes', 'all_day');
+        if (stale) {
+          const body = typeof stale.data === 'string' ? stale.data : JSON.stringify(stale.data);
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=60',
+            'X-GEV-Cache': 'STALE',
+          });
+          res.end(body);
+          return;
+        }
+        console.error('[Earthquakes Proxy]', error?.message || String(error));
+        res.writeHead(502, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'Earthquakes upstream unavailable' }));
+      }
+    });
+  }
+
+  return {
+    name: 'earthquakes-proxy',
+    configureServer(server) { install(server.middlewares); },
+    configurePreviewServer(server) { install(server.middlewares); },
+  };
+}
+
 function gbfsProxy() {
+  const stationInfoCache = new Map();
+  const STATION_INFO_TTL_MS = 10 * 60_000;
+
+  function install(middlewares) {
+    middlewares.use('/api/gbfs', async (req, res) => {
+      try {
+        if (req.method !== 'GET') {
+          res.writeHead(405, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+          return;
+        }
+
+        const url = new URL(req.url || '/', 'http://localhost');
+        const encodedTarget = url.pathname.replace(/^\/+/, '');
+        if (!encodedTarget) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Missing GBFS upstream target' }));
+          return;
+        }
+
+        let decodedTarget = '';
+        try {
+          decodedTarget = decodeURIComponent(encodedTarget);
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Invalid GBFS target encoding' }));
+          return;
+        }
+
+        let upstreamUrl = null;
+        try {
+          upstreamUrl = new URL(decodedTarget);
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Invalid GBFS upstream URL' }));
+          return;
+        }
+
+        if (upstreamUrl.protocol !== 'https:') {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Only https GBFS targets are allowed' }));
+          return;
+        }
+
+        if (!isAllowedGbfsHost(upstreamUrl.hostname)) {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'GBFS host not allowed' }));
+          return;
+        }
+
+        if (!isAllowedGbfsPath(upstreamUrl.pathname)) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Only station_information/station_status endpoints are allowed' }));
+          return;
+        }
+
+        const isStationInfo = /\/station_information\.json$/i.test(upstreamUrl.pathname);
+        const cacheKey = upstreamUrl.toString();
+        if (isStationInfo) {
+          const hit = stationInfoCache.get(cacheKey);
+          if (hit && Date.now() - hit.at < STATION_INFO_TTL_MS) {
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Cache-Control': gbfsCacheControl(upstreamUrl.pathname),
+              'X-GBFS-Upstream': upstreamUrl.hostname,
+              'X-GBFS-Cache': 'HIT',
+            });
+            res.end(hit.body);
+            return;
+          }
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), GBFS_PROXY_TIMEOUT_MS);
+        let upstream;
+        try {
+          upstream = await fetch(upstreamUrl.toString(), {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+              'User-Agent': 'gods-eye-view-gbfs-proxy/1.0',
+            },
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+        const GBFS_MAX_BODY_BYTES = 5 * 1024 * 1024;
+        const contentLength = Number(upstream.headers.get('content-length'));
+        if (Number.isFinite(contentLength) && contentLength > GBFS_MAX_BODY_BYTES) {
+          res.writeHead(502, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'GBFS upstream response too large' }));
+          return;
+        }
+        const body = await upstream.text();
+        if (Buffer.byteLength(body, 'utf8') > GBFS_MAX_BODY_BYTES) {
+          res.writeHead(502, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'GBFS upstream response too large' }));
+          return;
+        }
+
+        if (isStationInfo && upstream.status >= 200 && upstream.status < 300) {
+          stationInfoCache.set(cacheKey, { at: Date.now(), body });
+          while (stationInfoCache.size > 64) {
+            const oldest = stationInfoCache.keys().next().value;
+            stationInfoCache.delete(oldest);
+          }
+        }
+
+        const contentType = upstream.headers.get('content-type') || 'application/json';
+        res.writeHead(upstream.status, {
+          'Content-Type': contentType,
+          'Cache-Control': gbfsCacheControl(upstreamUrl.pathname),
+          'X-GBFS-Upstream': upstreamUrl.hostname,
+          'X-GBFS-Cache': 'MISS',
+        });
+        res.end(body);
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          res.writeHead(504, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'GBFS upstream timeout' }));
+          return;
+        }
+        console.error('[GBFS Proxy]', error?.message || String(error));
+        res.writeHead(502, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'GBFS proxy error' }));
+      }
+    });
+  }
+
   return {
     name: 'gbfs-proxy',
     configureServer(server) {
-      server.middlewares.use('/api/gbfs', async (req, res) => {
-        try {
-          if (req.method !== 'GET') {
-            res.writeHead(405, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'Method Not Allowed' }));
-            return;
-          }
-
-          const url = new URL(req.url || '/', 'http://localhost');
-          const encodedTarget = url.pathname.replace(/^\/+/, '');
-          if (!encodedTarget) {
-            res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'Missing GBFS upstream target' }));
-            return;
-          }
-
-          let decodedTarget = '';
-          try {
-            decodedTarget = decodeURIComponent(encodedTarget);
-          } catch {
-            res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'Invalid GBFS target encoding' }));
-            return;
-          }
-
-          let upstreamUrl = null;
-          try {
-            upstreamUrl = new URL(decodedTarget);
-          } catch {
-            res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'Invalid GBFS upstream URL' }));
-            return;
-          }
-
-          if (upstreamUrl.protocol !== 'https:') {
-            res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'Only https GBFS targets are allowed' }));
-            return;
-          }
-
-          if (!isAllowedGbfsHost(upstreamUrl.hostname)) {
-            res.writeHead(403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'GBFS host not allowed' }));
-            return;
-          }
-
-          if (!isAllowedGbfsPath(upstreamUrl.pathname)) {
-            res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'Only station_information/station_status endpoints are allowed' }));
-            return;
-          }
-
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), GBFS_PROXY_TIMEOUT_MS);
-          let upstream;
-          try {
-            upstream = await fetch(upstreamUrl.toString(), {
-              method: 'GET',
-              headers: {
-                Accept: 'application/json',
-                'User-Agent': 'gods-eye-view-gbfs-proxy/1.0',
-              },
-              signal: controller.signal,
-            });
-          } finally {
-            clearTimeout(timeoutId);
-          }
-
-          // Limit response size to prevent memory exhaustion from malicious upstream
-          const GBFS_MAX_BODY_BYTES = 5 * 1024 * 1024; // 5 MB
-          const contentLength = Number(upstream.headers.get('content-length'));
-          if (Number.isFinite(contentLength) && contentLength > GBFS_MAX_BODY_BYTES) {
-            res.writeHead(502, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'GBFS upstream response too large' }));
-            return;
-          }
-          const body = await upstream.text();
-          if (Buffer.byteLength(body, 'utf8') > GBFS_MAX_BODY_BYTES) {
-            res.writeHead(502, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'GBFS upstream response too large' }));
-            return;
-          }
-          const contentType = upstream.headers.get('content-type') || 'application/json';
-          res.writeHead(upstream.status, {
-            'Content-Type': contentType,
-            'Cache-Control': gbfsCacheControl(upstreamUrl.pathname),
-            'X-GBFS-Upstream': upstreamUrl.hostname,
-            'X-GBFS-Cache': 'MISS',
-          });
-          res.end(body);
-        } catch (error) {
-          if (error?.name === 'AbortError') {
-            res.writeHead(504, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-            res.end(JSON.stringify({ error: 'GBFS upstream timeout' }));
-            return;
-          }
-          console.error('[GBFS Proxy]', error?.message || String(error));
-          res.writeHead(502, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-          res.end(JSON.stringify({ error: 'GBFS proxy error' }));
-        }
-      });
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
+
 
 /**
  * FNV-1a 32-bit hash of a string, used to derive deterministic pseudo-random
@@ -7264,8 +7449,15 @@ function moroccoProxy() {
         const key = `${box.south.toFixed(3)},${box.west.toFixed(3)},${box.north.toFixed(3)},${box.east.toFixed(3)}|${kinds.join(',')}`;
         const hit = _moroccoPlacesCache.get(key);
         if (hit && Date.now() - hit.at < MOROCCO_PLACES_CACHE_MS) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'MEM', 'Cache-Control': 'no-store' });
           res.end(JSON.stringify(hit.payload));
+          return;
+        }
+        const diskHit = await readGevDiskJson('morocco/places', key, 12 * 60 * 60_000);
+        if (diskHit) {
+          _moroccoPlacesCache.set(key, { at: diskHit.cachedAt, payload: diskHit.data });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'DISK', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify(diskHit.data));
           return;
         }
         if (_moroccoPlacesInFlight.has(key)) {
@@ -7305,11 +7497,12 @@ function moroccoProxy() {
         try {
           const payload = await pending;
           _moroccoPlacesCache.set(key, { at: Date.now(), payload });
+          writeGevDiskJson('morocco/places', key, payload);
           while (_moroccoPlacesCache.size > MOROCCO_PLACES_MAX_CACHE) {
             const oldest = _moroccoPlacesCache.keys().next().value;
             _moroccoPlacesCache.delete(oldest);
           }
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'MISS', 'Cache-Control': 'no-store' });
           res.end(JSON.stringify(payload));
         } finally {
           _moroccoPlacesInFlight.delete(key);
@@ -7344,8 +7537,15 @@ function moroccoProxy() {
         const cell = `${safeLat.toFixed(1)},${safeLon.toFixed(1)}`;
         const hit = _moroccoContextCache.get(cell);
         if (hit && Date.now() - hit.at < MOROCCO_CONTEXT_CACHE_MS) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'MEM', 'Cache-Control': 'no-store' });
           res.end(JSON.stringify(hit.payload));
+          return;
+        }
+        const diskHit = await readGevDiskJson('morocco/context', cell, 45 * 60_000);
+        if (diskHit) {
+          _moroccoContextCache.set(cell, { at: diskHit.cachedAt, payload: diskHit.data });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'DISK', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify(diskHit.data));
           return;
         }
         const [airRes, weatherRes, marineRes, metarRes, prayerRes, wikiRes, quakeRes, country, catalog] = await Promise.all([
@@ -7392,7 +7592,8 @@ function moroccoProxy() {
           wikipedia: wikiFromGeosearch(wikiRes),
         };
         _moroccoContextCache.set(cell, { at: Date.now(), payload });
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        writeGevDiskJson('morocco/context', cell, payload);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'MISS', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify(payload));
       } catch (error) {
         res.writeHead(503, { 'Content-Type': 'application/json' });
@@ -7409,8 +7610,15 @@ function moroccoProxy() {
         }
         const now = Date.now();
         if (_moroccoAirportAircraftCache && now - _moroccoAirportAircraftCache.at < MOROCCO_AIRPORT_AIRCRAFT_CACHE_MS) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'MEM', 'Cache-Control': 'no-store' });
           res.end(JSON.stringify(_moroccoAirportAircraftCache.payload));
+          return;
+        }
+        const diskHit = await readGevDiskJson('morocco/airport-aircraft', 'latest', 30 * 60_000);
+        if (diskHit) {
+          _moroccoAirportAircraftCache = { at: diskHit.cachedAt, payload: diskHit.data };
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'DISK', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify(diskHit.data));
           return;
         }
         if (_moroccoAirportAircraftInFlight) {
@@ -7423,7 +7631,8 @@ function moroccoProxy() {
         try {
           const payload = await _moroccoAirportAircraftInFlight;
           _moroccoAirportAircraftCache = { at: Date.now(), payload };
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          writeGevDiskJson('morocco/airport-aircraft', 'latest', payload);
+          res.writeHead(200, { 'Content-Type': 'application/json', 'X-GEV-Cache': 'MISS', 'Cache-Control': 'no-store' });
           res.end(JSON.stringify(payload));
         } finally {
           _moroccoAirportAircraftInFlight = null;
@@ -8172,6 +8381,8 @@ export default defineConfig(({ mode }) => {
       cctvProxy(),
       radioBrowserProxy(),
       gbfsProxy(),
+      earthquakesProxy(),
+      hashedAssetCacheHeaders(),
       adsbLolProxy(),
       aisLiveProxy(),
       trackBackfillProxies(),
@@ -8208,9 +8419,33 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.CESIUM_ION_TOKEN': JSON.stringify(env.CESIUM_ION_TOKEN),
     },
     build: {
+      // Mac app + preview serve this folder; keep it out of Electron's dist/.
+      outDir: 'web-dist',
+      emptyOutDir: true,
       // The Cesium engine bundle is inherently large; raise the warning ceiling
       // so the build log isn't dominated by an expected chunk-size notice.
       chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules/cesium')) return 'cesium';
+            if (id.includes('/src/data/flights')) return 'layer-flights';
+            if (id.includes('/src/data/aisLiveVessels')) return 'layer-ais';
+            if (id.includes('/src/data/oncfTrains')) return 'layer-oncf';
+            if (id.includes('/src/data/morocco')) return 'layer-morocco';
+            return undefined;
+          },
+        },
+      },
+    },
+    preview: {
+      host: '127.0.0.1',
+      port: 4174,
+      strictPort: true,
+      headers: {
+        'X-Frame-Options': 'DENY',
+        'Content-Security-Policy': "frame-ancestors 'none'",
+      },
     },
   };
 });

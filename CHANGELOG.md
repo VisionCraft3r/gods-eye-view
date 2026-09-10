@@ -7,11 +7,16 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ### Added
 
+- Cold-start performance pass: Mac app prefers a prebuilt `web-dist/` via `vite preview` (set `GEV_DEV=1` to force Vite dev), Cesium/layer manual chunks, and lazy-loaded heavy data layers.
+- Session restore for camera (`gev:session-camera:v1`) and Morocco pack enablement; first-run default camera is Casablanca with API-heavy layers left off until explicitly enabled.
+- Disk/memory caches for Morocco places/context/airport-aircraft, GBFS `station_information`, and USGS earthquakes via `/api/earthquakes`.
 - Local Mac app packaging now uses a dedicated eye-mark Dock icon (`public/app-icon.png`) and `npm run mac:refresh` rebuilds `~/Applications/God's Eye View.app`, pins it to the Dock, and relaunches it.
 - Morocco pack parks tiny 3D `airplane.glb` models on Moroccan airports from OpenSky arrivals/departures and live ADS-B, refreshed every five minutes.
 
 ### Changed
 
+- ONCF train preRender ticks are throttled to ~10 Hz; Morocco airport GLB entities are diffed/reused instead of `removeAll` on each refresh.
+- Morocco pack companions default to off so enabling the pack no longer auto-lights flights/AIS/traffic.
 - Morocco pack flag and sheet now match the glass HUD menus (DATA LAYERS /
   LOCATION / CCTV): cyan accent chips, mono panel title, and `scene-btn`
   pack/fly controls instead of the lime consumer-app popup.

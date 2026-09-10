@@ -22,6 +22,7 @@ const MODEL_MAX = 48;
 const MODEL_SCALE = 0.28;
 const MODEL_HEADING_OFFSET = Math.PI;
 const SPRITE_PX = 18;
+const TICK_MIN_MS = 100;
 const KIND_COLOR = {
   0: Cesium.Color.fromCssColorString('#7ecbff'),
   1: Cesium.Color.fromCssColorString('#f0c14a'),
@@ -50,6 +51,7 @@ export function createOncfTrainsLayer() {
     pending: new Set(),
     lastIds: new Set(),
     removePreRender: null,
+    lastTickMs: 0,
     lastUpdate: null,
     count: 0,
     weekend: false,
@@ -186,6 +188,9 @@ export function createOncfTrainsLayer() {
       holdContinuousRender('oncf-trains');
       if (state.viewer?.scene?.preRender && !state.removePreRender) {
         state.removePreRender = state.viewer.scene.preRender.addEventListener(() => {
+          const now = Date.now();
+          if (now - state.lastTickMs < TICK_MIN_MS) return;
+          state.lastTickMs = now;
           tick(state.viewer);
         });
       }

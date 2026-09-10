@@ -143,3 +143,17 @@ Douglas-Peucker simplification, 6-decimal rounding).
 ## In-app attribution
 
 The required Google Maps / Cesium credit renders on the on-globe credit line (`#cesium-credits`, bottom-left) and must stay visible — including in clean-view and recording modes (the whole line, logo + "Google Maps" + the "Data attribution" link, stays on screen; only the GEV panels/HUD fade). The layer-specific credits (adsb.lol, TeleGeography, OSM datacenters/dams/roads, NASA FIRMS, CelesTrak, USGS, City of Austin, GBFS, Radio Browser, OpenSky, AISStream) are registered into the expandable **"Data attribution"** popover on that credit line via `viewer.creditDisplay.addStaticCredit(new Cesium.Credit(html, /* showOnScreen */ false))` — see `src/data/dataCredits.js`. When you add a new data source, add its license and attribution to this file **and** append an entry to `DATA_CREDITS` in `src/data/dataCredits.js` so it surfaces in the app.
+
+## Local performance caches (dev / Mac app)
+
+Restart-friendly caches live under gitignored `.gev-cache/`:
+
+| Path | Contents | Typical TTL |
+|------|----------|-------------|
+| `.gev-cache/overpass/` | Overpass / OSM query bodies | 7–30 days |
+| `.gev-cache/morocco/places/` | Morocco pack places payloads | ~12 hours |
+| `.gev-cache/morocco/context/` | Morocco weather/METAR/context cells | ~45 minutes |
+| `.gev-cache/morocco/airport-aircraft/` | Last-good apron occupancy | ~30 minutes |
+| `.gev-cache/usgs-earthquakes/` | USGS all-day GeoJSON via `/api/earthquakes` | ~10 minutes (stale on upstream failure) |
+
+GBFS `station_information` is memory-cached ~10 minutes (`X-GBFS-Cache: HIT`); `station_status` stays `no-store`. Google Places responses are never written to disk.

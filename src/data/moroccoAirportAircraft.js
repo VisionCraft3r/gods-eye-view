@@ -50,10 +50,22 @@ export function createMoroccoAirportAircraftLayer() {
 
   const paint = (records) => {
     if (!state.dataSource) return;
-    state.dataSource.entities.removeAll();
+    const next = Array.isArray(records) ? records : [];
+    const nextIds = new Set(next.map((record) => String(record.id)));
+    const entities = state.dataSource.entities;
+
+    for (const existing of [...entities.values]) {
+      const entityId = String(existing.id || '');
+      const prefix = `${MOROCCO_AIRPORT_AIRCRAFT_LAYER_ID}:`;
+      const recordId = entityId.startsWith(prefix) ? entityId.slice(prefix.length) : entityId;
+      if (!nextIds.has(String(recordId))) {
+        entities.remove(existing);
+      }
+    }
     removeEntityContextsForLayer(MOROCCO_AIRPORT_AIRCRAFT_LAYER_ID);
-    state.records = records;
-    for (const record of records) {
+
+    for (const record of next) {
+      const entityId = `${MOROCCO_AIRPORT_AIRCRAFT_LAYER_ID}:${record.id}`;
       const position = Cesium.Cartesian3.fromDegrees(record.longitude, record.latitude);
       const heading = Cesium.Math.toRadians((record.headingDeg || 75) + MODEL_HEADING_OFFSET_DEG);
       const orientation = Cesium.Transforms.headingPitchRollQuaternion(
@@ -61,22 +73,29 @@ export function createMoroccoAirportAircraftLayer() {
         new Cesium.HeadingPitchRoll(heading, 0, 0),
       );
       const label = record.callsign || record.icao24.toUpperCase();
-      const entity = state.dataSource.entities.add({
-        id: `${MOROCCO_AIRPORT_AIRCRAFT_LAYER_ID}:${record.id}`,
-        name: label,
-        position,
-        orientation,
-        model: {
-          uri: MODEL_URL,
-          scale: MODEL_SCALE,
-          minimumPixelSize: 8,
-          maximumScale: 0.4,
-          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-          color: Cesium.Color.fromCssColorString('#eef3f8'),
-          colorBlendMode: Cesium.ColorBlendMode.MIX,
-          colorBlendAmount: 0.9,
-        },
-      });
+      let entity = entities.getById(entityId);
+      if (entity) {
+        entity.name = label;
+        entity.position = position;
+        entity.orientation = orientation;
+      } else {
+        entity = entities.add({
+          id: entityId,
+          name: label,
+          position,
+          orientation,
+          model: {
+            uri: MODEL_URL,
+            scale: MODEL_SCALE,
+            minimumPixelSize: 8,
+            maximumScale: 0.4,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            color: Cesium.Color.fromCssColorString('#eef3f8'),
+            colorBlendMode: Cesium.ColorBlendMode.MIX,
+            colorBlendAmount: 0.9,
+          },
+        });
+      }
       registerEntityContext({
         layerId: MOROCCO_AIRPORT_AIRCRAFT_LAYER_ID,
         id: record.id,
@@ -85,6 +104,7 @@ export function createMoroccoAirportAircraftLayer() {
         record,
       });
     }
+    state.records = next;
     governorRequestRender('morocco-airport-aircraft');
   };
 

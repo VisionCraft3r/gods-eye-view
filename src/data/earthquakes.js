@@ -25,7 +25,7 @@ import {
  * already cover every discrete mutation this layer makes.
  */
 
-const API_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson';
+const API_URL = '/api/earthquakes';
 
 export const EARTHQUAKE_OVERLAY_SOURCE_ID = 'earthquakes';
 export const EARTHQUAKE_OVERLAY_COHORT_LIMIT = 96;

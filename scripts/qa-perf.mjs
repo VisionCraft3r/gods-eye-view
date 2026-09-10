@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Prefers the packaged Mac preview URL (http://127.0.0.1:4174) when web-dist is served.
 /**
  * qa-perf — render-governor regression gate (perf wave 2).
  *

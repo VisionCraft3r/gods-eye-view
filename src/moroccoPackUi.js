@@ -27,7 +27,8 @@ const MOROCCO_LAYER = 'morocco';
 
 const DEFAULT_COMPANIONS = Object.freeze(
   Object.fromEntries(
-    MOROCCO_COMPANION_LAYERS.map((layer) => [layer.id, layer.id !== 'radio']),
+    // Stay lean on first enable: companions are opt-in so restart/API burn stays low.
+    MOROCCO_COMPANION_LAYERS.map((layer) => [layer.id, false]),
   ),
 );
 
@@ -142,13 +143,14 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
   const stored = readStore() || {};
   const state = {
     open: false,
-    enabled: false,
+    enabled: stored.enabled === true,
     kinds: normalizeMoroccoKinds(stored.kinds),
     companions: { ...DEFAULT_COMPANIONS, ...(stored.companions || {}) },
   };
 
   const persist = () => {
     writeStore({
+      enabled: state.enabled,
       kinds: state.kinds,
       companions: state.companions,
     });
@@ -191,7 +193,7 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
     if (state.enabled) {
       dataManager.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
       for (const [layerId, on] of Object.entries(state.companions)) {
-        if (on) await dataManager.setEnabled(layerId, true, { origin: 'user' });
+        await dataManager.setEnabled(layerId, !!on, { origin: 'user' });
       }
       if (flyIfNeeded && !cameraInMorocco(viewer)) {
         styleManager?._stampNavigation?.();
@@ -353,6 +355,11 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
   setLiveButtons();
   paintChips();
   paintFlag();
+
+  // Restore last pack enablement only — companions already filtered to saved prefs.
+  if (state.enabled) {
+    void applyEnabled({ flyIfNeeded: false });
+  }
 
   const onFlag = () => {
     state.open = !state.open;

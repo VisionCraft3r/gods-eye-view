@@ -11,6 +11,8 @@ const HOST = '127.0.0.1';
 // while Chromium still connects to 127.0.0.1 and paints a blank window.
 const PORT = Number(process.env.GEV_PORT || 4174);
 const APP_URL = `http://${HOST}:${PORT}/`;
+const WEB_DIST = path.join(ROOT, 'web-dist');
+const FORCE_DEV = process.env.GEV_DEV === '1' || process.env.GEV_DEV === 'true';
 const APP_ICON = path.join(ROOT, 'public/app-icon.png');
 const LOADING_URL =
   'data:text/html;charset=utf-8,' +
@@ -67,7 +69,7 @@ async function waitForUrl(url, timeoutMs = 90000) {
   throw lastError || new Error(`Timed out waiting for ${url}`);
 }
 
-function startVite(node) {
+function startVite(node, { preview = false } = {}) {
   const viteCli = path.join(ROOT, 'node_modules/vite/bin/vite.js');
   const env = {
     ...process.env,
@@ -77,10 +79,14 @@ function startVite(node) {
     PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || '/usr/bin:/bin'}`,
   };
   delete env.ELECTRON_RUN_AS_NODE;
-  const logPath = path.join(app.getPath('userData'), 'vite.log');
+  const logPath = path.join(app.getPath('userData'), preview ? 'vite-preview.log' : 'vite.log');
   const logFd = openSync(logPath, 'w');
-  bootLog(`spawn vite node=${node} port=${PORT} log=${logPath}`);
-  serverProcess = spawn(node, [viteCli, '--host', HOST, '--port', String(PORT), '--strictPort'], {
+  const args = preview
+    ? ['preview', '--host', HOST, '--port', String(PORT), '--strictPort']
+    : ['--host', HOST, '--port', String(PORT), '--strictPort'];
+  bootLog(`spawn vite mode=${preview ? 'preview' : 'dev'} node=${node} port=${PORT} log=${logPath}`);
+  const t0 = Date.now();
+  serverProcess = spawn(node, [viteCli, ...args], {
     cwd: ROOT,
     env,
     stdio: ['ignore', logFd, logFd],
@@ -90,11 +96,15 @@ function startVite(node) {
     bootLog(`vite spawn error ${error.message}`);
   });
   serverProcess.on('exit', (code, signal) => {
-    bootLog(`vite exit code=${code} signal=${signal}`);
+    bootLog(`vite exit code=${code} signal=${signal} afterMs=${Date.now() - t0}`);
     if (!app.isQuitting && code && code !== 0) {
       console.error(`[GodsEye] Vite exited (${code || signal}). See ${logPath}`);
     }
   });
+}
+
+function preferStaticPreview() {
+  return !FORCE_DEV && existsSync(path.join(WEB_DIST, 'index.html'));
 }
 
 function buildMenu() {
@@ -232,13 +242,19 @@ app.whenReady().then(async () => {
       );
       return;
     }
-    startVite(node);
+    const usePreview = preferStaticPreview();
+    bootLog(`server mode=${usePreview ? 'preview/web-dist' : 'vite-dev'} gevDev=${FORCE_DEV}`);
+    startVite(node, { preview: usePreview });
   }
 
   try {
+    const readyAt = Date.now();
     await waitForUrl(APP_URL);
+    bootLog(`server ready afterMs=${Date.now() - readyAt}`);
     if (mainWindow && !mainWindow.isDestroyed()) {
+      const paintAt = Date.now();
       await mainWindow.loadURL(APP_URL);
+      bootLog(`first page load afterMs=${Date.now() - paintAt}`);
     }
   } catch (error) {
     failStart(`${error.message}\n\nTried ${APP_URL}\nProject: ${ROOT}`);

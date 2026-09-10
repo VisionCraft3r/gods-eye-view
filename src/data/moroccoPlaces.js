@@ -21,7 +21,14 @@ import {
   isInMorocco,
   normalizeMoroccoKinds,
 } from './moroccoBounds.js';
-import moroccoAirportAircraft from './moroccoAirportAircraft.js';
+
+let moroccoAirportAircraft = null;
+async function ensureMoroccoAirportAircraft() {
+  if (!moroccoAirportAircraft) {
+    moroccoAirportAircraft = (await import('./moroccoAirportAircraft.js')).default;
+  }
+  return moroccoAirportAircraft;
+}
 
 export const MOROCCO_LAYER_ID = 'morocco';
 export const MOROCCO_OVERLAY_SOURCE_ID = 'morocco';
@@ -221,7 +228,7 @@ export function createMoroccoPlacesLayer({ overlayHost = DEFAULT_OVERLAY_HOST } 
       state.dataSource = new Cesium.CustomDataSource(MOROCCO_LAYER_ID);
       state.dataSource.show = false;
       viewer.dataSources.add(state.dataSource);
-      moroccoAirportAircraft.init(viewer);
+      void ensureMoroccoAirportAircraft().then((layer) => layer.init(viewer));
       overlayHost.setVisible(MOROCCO_OVERLAY_SOURCE_ID, false);
     },
 
@@ -236,7 +243,7 @@ export function createMoroccoPlacesLayer({ overlayHost = DEFAULT_OVERLAY_HOST } 
         });
       }
       void fetchPlaces(state.viewer);
-      moroccoAirportAircraft.enable(state.viewer);
+      void ensureMoroccoAirportAircraft().then((layer) => layer.enable(state.viewer));
     },
 
     disable() {
@@ -249,7 +256,7 @@ export function createMoroccoPlacesLayer({ overlayHost = DEFAULT_OVERLAY_HOST } 
         state.moveEndRemove = null;
       }
       if (state.dataSource) state.dataSource.show = false;
-      moroccoAirportAircraft.disable();
+      if (moroccoAirportAircraft) moroccoAirportAircraft.disable();
       clearSelectedEntityContextForLayer(MOROCCO_LAYER_ID);
       clearEntities();
     },
@@ -260,7 +267,7 @@ export function createMoroccoPlacesLayer({ overlayHost = DEFAULT_OVERLAY_HOST } 
 
     destroy(viewer) {
       this.disable();
-      moroccoAirportAircraft.destroy(viewer);
+      if (moroccoAirportAircraft) moroccoAirportAircraft.destroy(viewer);
       if (state.dataSource && viewer) {
         viewer.dataSources.remove(state.dataSource, true);
       }
@@ -269,7 +276,7 @@ export function createMoroccoPlacesLayer({ overlayHost = DEFAULT_OVERLAY_HOST } 
     },
 
     getStats() {
-      const aircraft = moroccoAirportAircraft.getStats();
+      const aircraft = moroccoAirportAircraft?.getStats?.() || { count: 0 };
       return {
         count: state.records.length,
         lastUpdate: state.lastUpdate,

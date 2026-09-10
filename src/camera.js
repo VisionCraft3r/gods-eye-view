@@ -1,10 +1,19 @@
 import * as Cesium from 'cesium';
+import { flyToPresetLocation } from './locations.js';
 
 /**
  * Camera presets for notable locations.
- * Phase 1 default: fly to Austin, TX on load.
+ * First-run default (no saved session / share link): Casablanca.
  */
 export const CAMERA_PRESETS = {
+  casablanca: {
+    destination: Cesium.Cartesian3.fromDegrees(-7.5898, 33.5731, 1200),
+    orientation: {
+      heading: Cesium.Math.toRadians(15),
+      pitch: Cesium.Math.toRadians(-30),
+      roll: 0.0,
+    },
+  },
   austin: {
     destination: Cesium.Cartesian3.fromDegrees(-97.7431, 30.2672, 800),
     orientation: {
@@ -47,30 +56,35 @@ export function flyToPreset(viewer, presetName, duration = 3.0) {
 }
 
 /**
- * Set camera to Austin on load with a cinematic fly-in.
+ * First-run default: cinematic approach into Casablanca.
+ * Prefer locations.flyToPresetLocation when overview framing is desired.
  */
-export function flyToAustin(viewer) {
-  // Start from a high altitude, then fly down
+export function flyToCasablanca(viewer) {
+  if (!viewer?.camera) return;
+  // High overview first so the coast reads clearly, then settle on the city POI.
   viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(-97.7431, 30.2672, 25000),
+    destination: Cesium.Cartesian3.fromDegrees(-7.5898, 33.5731, 45000),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90),
       roll: 0.0,
     },
   });
-
-  // Cinematic fly-in after a brief pause
   setTimeout(() => {
+    if (typeof flyToPresetLocation === 'function') {
+      flyToPresetLocation(viewer, 'casablanca', { viewMode: 'overview', duration: 4.0 });
+      return;
+    }
     viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(-97.7431, 30.2672, 600),
-      orientation: {
-        heading: Cesium.Math.toRadians(15),
-        pitch: Cesium.Math.toRadians(-30),
-        roll: 0.0,
-      },
+      destination: CAMERA_PRESETS.casablanca.destination,
+      orientation: CAMERA_PRESETS.casablanca.orientation,
       duration: 4.0,
       easingFunction: Cesium.EasingFunction.CUBIC_IN_OUT,
     });
   }, 500);
+}
+
+/** @deprecated Use flyToCasablanca — kept for older call sites/tests. */
+export function flyToAustin(viewer) {
+  flyToCasablanca(viewer);
 }

@@ -1,23 +1,24 @@
 import * as Cesium from 'cesium';
 import { StyleManager } from './ui.js';
-import { flyToAustin } from './camera.js';
+import { flyToCasablanca } from './camera.js';
+import {
+  applySessionCamera,
+  installSessionCameraPersistence,
+  readSessionCamera,
+} from './sessionCamera.js';
+import { createLazyDataLayer } from './data/lazyLayer.js';
 import { installMacTrackpadGestures } from './macTrackpadGestures.js';
 import { DataLayerManager } from './data/manager.js';
-import flightsLayer from './data/flights.js';
-import militaryFlightsLayer from './data/militaryFlights.js';
-import earthquakesLayer from './data/earthquakes.js';
 import satellitesLayer from './data/satellites.js';
 import rocketLaunchesLayer from './data/rocketLaunches.js';
-import trafficLayer from './data/traffic.js';
 import cctvLayer from './data/cctv.js';
 import radioLayer from './data/radio.js';
 import bikeshareLayer from './data/bikeshare.js';
-import aisLiveVesselsLayer from './data/aisLiveVessels.js';
 import militaryInstallationsLayer from './data/militaryInstallations.js';
 import militaryAwarenessLayer from './data/militaryAwareness.js';
 import moroccoPlacesLayer from './data/moroccoPlaces.js';
-import oncfTrainsLayer from './data/oncfTrains.js';
 import localDataLayers from './data/localLayers.js';
+
 import { LAYER_STATE_REGISTRY } from './data/layerState.js';
 import { registerDataCredits } from './data/dataCredits.js';
 import { SceneDirector } from './scenes/director.js';
@@ -38,6 +39,32 @@ import { initFirstRunExperience } from './firstRunExperience.js';
 import { initKeySetup, stripKeylessBasemapFromHash } from './keySetup.js';
 import { loadPhotorealisticTileset } from './mapStartup.js';
 import { initI18n, t } from './i18n/index.js';
+
+const flightsLayer = createLazyDataLayer(
+  { id: 'flights', name: 'Flights' },
+  () => import('./data/flights.js'),
+);
+const militaryFlightsLayer = createLazyDataLayer(
+  { id: 'military', name: 'Military flights' },
+  () => import('./data/militaryFlights.js'),
+);
+const earthquakesLayer = createLazyDataLayer(
+  { id: 'earthquakes', name: 'Earthquakes' },
+  () => import('./data/earthquakes.js'),
+);
+const trafficLayer = createLazyDataLayer(
+  { id: 'traffic', name: 'Traffic' },
+  () => import('./data/traffic.js'),
+);
+const aisLiveVesselsLayer = createLazyDataLayer(
+  { id: 'ais-live-vessels', name: 'AIS vessels' },
+  () => import('./data/aisLiveVessels.js'),
+);
+const oncfTrainsLayer = createLazyDataLayer(
+  { id: 'oncf-trains', name: 'ONCF trains' },
+  () => import('./data/oncfTrains.js'),
+);
+
 
 initI18n();
 initLogoGaze();
@@ -207,10 +234,20 @@ async function init() {
     const weatherEffects = null;
     const cockpitCloudEffects = initCockpitCloudEffects(viewer);
 
-    // If no share link state, do default fly-to Austin
+    // Share links win. Else restore the last session camera. Else Casablanca.
+    // Do not enable any API-heavy layers here — layer-state restore owns that.
     if (!styleManager.hasShareState) {
-      loaderStatus.textContent = t('Flying to Austin, TX...');
-      flyToAustin(viewer);
+      const savedCamera = readSessionCamera();
+      if (savedCamera) {
+        loaderStatus.textContent = t('Restoring last view...');
+        applySessionCamera(viewer, savedCamera);
+      } else {
+        loaderStatus.textContent = t('Flying to Casablanca...');
+        flyToCasablanca(viewer);
+      }
+      installSessionCameraPersistence(viewer, {
+        getLocationId: () => styleManager?.activeLocationId || null,
+      });
     } else {
       loaderStatus.textContent = t('Restoring shared view...');
     }
