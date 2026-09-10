@@ -21,6 +21,12 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
   app folder. Electron was resolving it as
   `.../Resources/app/Users/.../desktop/main.mjs` and crashing on open. A small
   in-bundle launcher now imports the project entry by `file://` URL.
+- The Mac app no longer treats Vite on `localhost`/`[::1]` as ready. Chromium
+  prefers `127.0.0.1`, so an IPv6-only dev server produced a black window.
+  It now starts its own IPv4 server on port 4174, maps `localhost` to
+  `127.0.0.1`, and reports load failures instead of staying blank.
+  Startup no longer awaits pinch-zoom limits before the first page load,
+  which left an empty native window with no renderer.
 - Mapped-site outages show their scheduled retry countdown and distinguish
   known Overpass rate limits, timeouts, and query failures. Search feedback no
   longer claims a refresh succeeded while the layer is unavailable or loading.

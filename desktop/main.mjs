@@ -1,15 +1,16 @@
 import { app, BrowserWindow, Menu, shell, dialog } from 'electron';
 import { spawn, spawnSync } from 'node:child_process';
-import { createServer } from 'node:net';
-import { existsSync } from 'node:fs';
+import { appendFileSync, existsSync, openSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const HOST = '127.0.0.1';
-const PORT = Number(process.env.PORT || 4173);
-const APP_URLS = [`http://${HOST}:${PORT}/`, `http://localhost:${PORT}/`];
+// Own IPv4 port so Cursor's Vite on localhost/[::1]:4173 cannot look "ready"
+// while Chromium still connects to 127.0.0.1 and paints a blank window.
+const PORT = Number(process.env.GEV_PORT || 4174);
+const APP_URL = `http://${HOST}:${PORT}/`;
 const APP_ICON = path.join(ROOT, 'public/app-icon.png');
 const LOADING_URL =
   'data:text/html;charset=utf-8,' +
@@ -22,6 +23,15 @@ const LOADING_URL =
 let serverProcess = null;
 let startedServer = false;
 let mainWindow = null;
+
+function bootLog(message) {
+  const line = `${new Date().toISOString()} ${message}\n`;
+  try {
+    appendFileSync('/tmp/gev-boot.log', line);
+  } catch {
+    /* ignore */
+  }
+}
 
 function findNodeBinary() {
   const home = process.env.HOME || '';
@@ -41,33 +51,20 @@ function findNodeBinary() {
   return null;
 }
 
-function canListen(port) {
-  return new Promise((resolve) => {
-    const probe = createServer();
-    probe.once('error', () => resolve(false));
-    probe.once('listening', () => {
-      probe.close(() => resolve(true));
-    });
-    probe.listen(port, HOST);
-  });
-}
-
-async function waitForAnyUrl(urls, timeoutMs = 90000) {
+async function waitForUrl(url, timeoutMs = 90000) {
   const start = Date.now();
   let lastError = null;
   while (Date.now() - start < timeoutMs) {
-    for (const url of urls) {
-      try {
-        const response = await fetch(url, { cache: 'no-store' });
-        if (response.ok || response.status < 500) return url;
-        lastError = new Error(`HTTP ${response.status} from ${url}`);
-      } catch (error) {
-        lastError = error;
-      }
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (response.ok || response.status < 500) return url;
+      lastError = new Error(`HTTP ${response.status} from ${url}`);
+    } catch (error) {
+      lastError = error;
     }
     await new Promise((resolve) => setTimeout(resolve, 400));
   }
-  throw lastError || new Error(`Timed out waiting for ${urls.join(' or ')}`);
+  throw lastError || new Error(`Timed out waiting for ${url}`);
 }
 
 function startVite(node) {
@@ -80,17 +77,22 @@ function startVite(node) {
     PATH: `/opt/homebrew/bin:/usr/local/bin:${process.env.PATH || '/usr/bin:/bin'}`,
   };
   delete env.ELECTRON_RUN_AS_NODE;
+  const logPath = path.join(app.getPath('userData'), 'vite.log');
+  const logFd = openSync(logPath, 'w');
+  bootLog(`spawn vite node=${node} port=${PORT} log=${logPath}`);
   serverProcess = spawn(node, [viteCli, '--host', HOST, '--port', String(PORT), '--strictPort'], {
     cwd: ROOT,
     env,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['ignore', logFd, logFd],
   });
   startedServer = true;
-  serverProcess.stdout?.on('data', (chunk) => process.stdout.write(chunk));
-  serverProcess.stderr?.on('data', (chunk) => process.stderr.write(chunk));
+  serverProcess.on('error', (error) => {
+    bootLog(`vite spawn error ${error.message}`);
+  });
   serverProcess.on('exit', (code, signal) => {
+    bootLog(`vite exit code=${code} signal=${signal}`);
     if (!app.isQuitting && code && code !== 0) {
-      console.error(`[GodsEye] Vite exited (${code || signal})`);
+      console.error(`[GodsEye] Vite exited (${code || signal}). See ${logPath}`);
     }
   });
 }
@@ -139,59 +141,91 @@ function buildMenu() {
 }
 
 function failStart(message) {
+  bootLog(`failStart ${message}`);
   console.error('[GodsEye] Failed to start:', message);
   dialog.showErrorBox("God's Eye View could not start", message);
   app.quit();
 }
 
-async function createWindow() {
+function createWindow() {
+  bootLog('createWindow');
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1100,
     minHeight: 720,
+    show: true,
     backgroundColor: '#070b10',
     icon: existsSync(APP_ICON) ? APP_ICON : undefined,
     title: "God's Eye View",
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 14, y: 14 },
     webPreferences: {
-      sandbox: true,
+      sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
+      nodeIntegrationInWorker: false,
+      webgl: true,
+      backgroundThrottling: false,
     },
   });
-  await mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
+  bootLog('BrowserWindow constructed');
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.setVisualZoomLevelLimits(1, 1).catch(() => {});
+    bootLog(`loaded ${mainWindow.webContents.getURL()}`);
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
-  await mainWindow.loadURL(LOADING_URL);
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, url, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) return;
+    if (url.startsWith('data:')) return;
+    bootLog(`did-fail-load ${errorCode} ${errorDescription} ${url}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      failStart(`Could not load the globe (${errorDescription}).\n\nTried ${url}\nCode ${errorCode}`);
+    }
+  });
+  mainWindow.loadURL(LOADING_URL).catch((error) => bootLog(`loading url ${error.message}`));
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
 app.setName("God's Eye View");
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-webgl');
+app.commandLine.appendSwitch('host-resolver-rules', 'MAP localhost 127.0.0.1, MAP ::1 127.0.0.1');
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('use-angle', 'metal');
+}
 app.setAboutPanelOptions({
   applicationName: "God's Eye View",
   applicationVersion: '0.1.1',
   copyright: 'MIT · upstream bilawalsidhu/gods-eye-view',
 });
 
+bootLog(`main module loaded ready=${app.isReady()} root=${ROOT}`);
+
 app.whenReady().then(async () => {
+  bootLog('whenReady');
   if (existsSync(APP_ICON) && app.dock) {
     app.dock.setIcon(APP_ICON);
   }
   buildMenu();
-  await createWindow();
+  createWindow();
 
   const node = findNodeBinary();
-  const free = await canListen(PORT);
-  if (free) {
+  bootLog(`node=${node || 'missing'}`);
+  let live = false;
+  try {
+    const response = await fetch(APP_URL, { cache: 'no-store' });
+    live = Boolean(response.ok || response.status < 500);
+  } catch {
+    live = false;
+  }
+  bootLog(`server live=${live}`);
+  if (!live) {
     if (!node) {
       failStart(
         `Node.js was not found, so the globe server could not start.\n\nInstall Node or put it on PATH, then reopen God's Eye View.\nProject: ${ROOT}`,
@@ -202,12 +236,12 @@ app.whenReady().then(async () => {
   }
 
   try {
-    const readyUrl = await waitForAnyUrl(APP_URLS);
+    await waitForUrl(APP_URL);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      await mainWindow.loadURL(readyUrl);
+      await mainWindow.loadURL(APP_URL);
     }
   } catch (error) {
-    failStart(`${error.message}\n\nProject: ${ROOT}`);
+    failStart(`${error.message}\n\nTried ${APP_URL}\nProject: ${ROOT}`);
     return;
   }
 
@@ -215,9 +249,9 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       await createWindow();
       try {
-        const readyUrl = await waitForAnyUrl(APP_URLS, 15000);
+        await waitForUrl(APP_URL, 15000);
         if (mainWindow && !mainWindow.isDestroyed()) {
-          await mainWindow.loadURL(readyUrl);
+          await mainWindow.loadURL(APP_URL);
         }
       } catch (error) {
         failStart(error.message);

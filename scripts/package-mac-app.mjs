@@ -67,20 +67,46 @@ writeIcns(ICON_PNG, icnsPath);
 fs.copyFileSync(icnsPath, path.join(resources, 'AppIcon.icns'));
 
 fs.mkdirSync(appDir, { recursive: true });
-// Electron joins package.json "main" onto Resources/app and treats a leading
-// slash as relative, so an absolute project path becomes
-// .../app/Users/.../desktop/main.mjs. Load a local launcher instead.
+// Electron joins package.json "main" onto Resources/app, so keep a local
+// CommonJS launcher. Top-level await in an ESM main can stall before
+// whenReady, leaving the stock Electron nib as a black window.
 fs.writeFileSync(
-  path.join(appDir, 'electron-main.mjs'),
-  `import { pathToFileURL } from 'node:url';\nawait import(pathToFileURL(${JSON.stringify(MAIN)}).href);\n`,
+  path.join(appDir, 'electron-main.cjs'),
+  `'use strict';
+const { app, dialog } = require('electron');
+const fs = require('node:fs');
+const { pathToFileURL } = require('node:url');
+
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-webgl');
+app.commandLine.appendSwitch('host-resolver-rules', 'MAP localhost 127.0.0.1, MAP ::1 127.0.0.1');
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('use-angle', 'metal');
+}
+
+const mainPath = ${JSON.stringify(MAIN)};
+try {
+  fs.writeFileSync('/tmp/gev-boot.log', \`cjs \${new Date().toISOString()} ready=\${app.isReady()} \${mainPath}\\n\`);
+} catch {}
+
+import(pathToFileURL(mainPath).href).catch((error) => {
+  const message = error && error.stack ? error.stack : String(error);
+  try { fs.appendFileSync('/tmp/gev-boot.log', message + '\\n'); } catch {}
+  const show = () => {
+    dialog.showErrorBox("God's Eye View", message);
+    app.quit();
+  };
+  if (app.isReady()) show();
+  else app.whenReady().then(show);
+});
+`,
 );
 fs.writeFileSync(
   path.join(appDir, 'package.json'),
   `${JSON.stringify(
     {
       name: 'gods-eye-view',
-      type: 'module',
-      main: 'electron-main.mjs',
+      main: 'electron-main.cjs',
     },
     null,
     2,
@@ -92,9 +118,19 @@ const replacements = [
   ['CFBundleName', "God's Eye View"],
   ['CFBundleIdentifier', 'com.godseye.view'],
   ['CFBundleIconFile', 'electron.icns'],
+  [
+    'NSLocalNetworkUsageDescription',
+    "God's Eye View runs a local globe server on this Mac so the map can load.",
+  ],
 ];
 for (const [key, value] of replacements) {
   run('plutil', ['-replace', key, '-string', value, plist]);
+}
+run('plutil', ['-replace', 'NSHighResolutionCapable', '-bool', 'true', plist]);
+try {
+  run('plutil', ['-delete', 'NSMainNibFile', plist]);
+} catch {
+  // Stock Electron.app may omit the nib key.
 }
 
 fs.mkdirSync(path.dirname(INSTALL), { recursive: true });
