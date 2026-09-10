@@ -67,13 +67,20 @@ writeIcns(ICON_PNG, icnsPath);
 fs.copyFileSync(icnsPath, path.join(resources, 'AppIcon.icns'));
 
 fs.mkdirSync(appDir, { recursive: true });
+// Electron joins package.json "main" onto Resources/app and treats a leading
+// slash as relative, so an absolute project path becomes
+// .../app/Users/.../desktop/main.mjs. Load a local launcher instead.
+fs.writeFileSync(
+  path.join(appDir, 'electron-main.mjs'),
+  `import { pathToFileURL } from 'node:url';\nawait import(pathToFileURL(${JSON.stringify(MAIN)}).href);\n`,
+);
 fs.writeFileSync(
   path.join(appDir, 'package.json'),
   `${JSON.stringify(
     {
       name: 'gods-eye-view',
       type: 'module',
-      main: MAIN,
+      main: 'electron-main.mjs',
     },
     null,
     2,

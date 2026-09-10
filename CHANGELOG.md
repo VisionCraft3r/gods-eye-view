@@ -17,6 +17,10 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
   launcher, so Dock and Finder can open it. It shows a window immediately,
   finds Node even with Dock's stripped PATH, waits on both `127.0.0.1` and
   `localhost`, and reports a dialog instead of quitting silently.
+- Packaged `package.json` no longer puts an absolute `main` path in Electron's
+  app folder. Electron was resolving it as
+  `.../Resources/app/Users/.../desktop/main.mjs` and crashing on open. A small
+  in-bundle launcher now imports the project entry by `file://` URL.
 - Mapped-site outages show their scheduled retry countdown and distinguish
   known Overpass rate limits, timeouts, and query failures. Search feedback no
   longer claims a refresh succeeded while the layer is unavailable or loading.
