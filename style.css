@@ -263,11 +263,6 @@ body.cockpit-mode #cockpit-cloud-effects.active {
 }
 
 #morocco-pack {
-  --morocco-lime: #d6ff3f;
-  --morocco-lime-ink: #14180a;
-  --morocco-sheet: #1a1a1a;
-  --morocco-card: #2a2a2a;
-  --morocco-red: #c1272d;
   position: fixed;
   left: 36px;
   bottom: 72px;
@@ -275,7 +270,7 @@ body.cockpit-mode #cockpit-cloud-effects.active {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   pointer-events: none;
 }
 
@@ -284,278 +279,179 @@ body.cockpit-mode #cockpit-cloud-effects.active {
 }
 
 #morocco-pack-flag {
-  width: 56px;
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
-  background: var(--morocco-red);
+  width: 44px;
+  height: 32px;
+  padding: 3px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--btn-radius);
+  background: var(--glass-bg);
   overflow: hidden;
   cursor: pointer;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
-  transition: transform var(--transition-fast);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
 #morocco-pack-flag svg {
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: 4px;
 }
 
 #morocco-pack-flag:hover,
 #morocco-pack-flag:focus-visible,
 #morocco-pack-flag.active,
 #morocco-pack-flag[aria-pressed='true'] {
-  transform: scale(1.05);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: translateY(-1px);
 }
 
 #morocco-pack-flag:focus-visible {
-  outline: 2px solid var(--morocco-lime);
-  outline-offset: 3px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 #morocco-pack-sheet {
-  width: min(360px, calc(100vw - 72px));
-  max-height: min(72vh, 680px);
+  position: relative;
+  width: min(340px, calc(100vw - 72px));
+  max-height: min(70vh, 640px);
   overflow: auto;
-  padding: 16px 16px 18px;
-  border: 0;
-  border-radius: 28px;
-  background: var(--morocco-sheet);
-  color: #f4f4f4;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-}
-
-.morocco-pack-search {
   padding: 14px 16px 16px;
-  border-radius: 20px;
-  background: #fff;
-  color: #111;
-  margin-bottom: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--panel-radius);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
 }
 
-.morocco-pack-search h2 {
-  margin: 2px 0 6px;
-  font-size: 22px;
-  letter-spacing: -0.03em;
-  color: #111;
+#morocco-pack-sheet .panel-glow {
+  position: absolute;
+  inset: -24px;
+  background: radial-gradient(ellipse at center, var(--accent-dim) 0%, transparent 60%);
+  filter: blur(20px);
+  opacity: 0.28;
+  pointer-events: none;
 }
 
-.morocco-pack-search .morocco-pack-kicker {
-  color: #6b6b6b;
-  text-transform: none;
-  letter-spacing: 0;
-  font-family: inherit;
-  font-size: 13px;
+#morocco-pack-sheet .panel-header {
+  position: relative;
+  margin-bottom: 10px;
 }
 
-.morocco-pack-pin {
-  color: #3d3d3d !important;
-  font-family: inherit !important;
-  font-size: 13px !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
+#morocco-pack-enable {
+  flex: 0 0 auto;
+  min-width: 72px;
 }
 
-.morocco-pack-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  font-size: 14px;
+#morocco-pack-enable[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0, 212, 255, 0.14);
 }
 
-#morocco-pack-sheet header {
+.morocco-pack-fly {
+  position: relative;
   display: block;
-  margin-bottom: 0;
-}
-
-#morocco-pack-sheet h2 {
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: -0.03em;
-}
-
-.morocco-pack-kicker,
-.morocco-pack-label,
-.morocco-pack-status {
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  color: rgba(244, 244, 244, 0.62);
+  width: 100%;
+  flex: none;
+  margin-bottom: 10px;
+  text-transform: uppercase;
 }
 
 .morocco-pack-label {
-  margin: 14px 0 8px;
-  font-size: 11px;
+  position: relative;
+  margin: 12px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: var(--text-dim);
 }
 
 .morocco-pack-status {
-  line-height: 1.4;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  line-height: 1.45;
+  color: var(--text-secondary);
 }
 
 .morocco-pack-brief {
+  position: relative;
   display: grid;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--morocco-card);
-}
-
-.morocco-pack-brief .morocco-pack-status {
-  margin-top: 0;
-  color: rgba(244, 244, 244, 0.82);
+  gap: 4px;
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
 }
 
 .morocco-pack-brief .morocco-pack-status:empty {
   display: none;
 }
 
-.morocco-pack-tiles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.morocco-pack-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  min-height: 72px;
-  padding: 12px;
-  border: 0;
-  border-radius: 16px;
-  background: var(--morocco-card);
-  color: #f4f4f4;
-  cursor: pointer;
-  text-align: left;
-}
-
-.morocco-pack-tile-wide {
-  grid-column: 1 / -1;
-  min-height: 84px;
-  background:
-    linear-gradient(90deg, rgba(214, 255, 63, 0.16), transparent 55%),
-    var(--morocco-card);
-}
-
-.morocco-pack-tile strong {
-  font-size: 15px;
-  font-weight: 650;
-}
-
-.morocco-pack-tile span {
-  font-size: 12px;
-  color: rgba(244, 244, 244, 0.58);
-}
-
-.morocco-pack-tile:hover,
-.morocco-pack-tile:focus-visible {
-  outline: 2px solid var(--morocco-lime);
-}
-
-#morocco-pack-fly,
-#morocco-pack-enable {
-  border: 0;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-#morocco-pack-enable {
-  min-width: 44px;
-  min-height: 28px;
-  border-radius: 999px;
-  background: #3a3a3a;
-  color: transparent;
-  position: relative;
-  padding: 0 22px 0 4px;
-}
-
-#morocco-pack-enable::after {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #fff;
-}
-
-#morocco-pack-enable[aria-pressed='true'] {
-  background: var(--morocco-lime);
-  color: transparent;
-}
-
-#morocco-pack-enable[aria-pressed='true']::after {
-  left: auto;
-  right: 4px;
-  background: var(--morocco-lime-ink);
-}
-
-#morocco-pack-fly {
-  position: sticky;
-  bottom: 0;
-  width: 100%;
-  margin-top: 14px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: var(--morocco-lime);
-  color: var(--morocco-lime-ink);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-#morocco-pack-enable[aria-pressed='true'],
-.morocco-pack-chip[aria-pressed='true'] {
-  color: var(--morocco-lime-ink);
-  border-color: transparent;
-  background: var(--morocco-lime);
-}
-
 .morocco-pack-chips {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 
 .morocco-pack-chip {
-  min-width: 44px;
-  min-height: 36px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--morocco-card);
-  color: #f4f4f4;
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
   cursor: pointer;
-  font-size: 12px;
-  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
 }
 
 .morocco-pack-chip:hover,
 .morocco-pack-chip:focus-visible {
-  color: var(--morocco-lime-ink);
-  background: var(--morocco-lime);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.morocco-pack-chip[aria-pressed='true'] {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
 }
 
 #morocco-pack-catalog,
 #morocco-pack-wiki {
+  position: relative;
   margin: 0;
   padding-left: 16px;
   font-size: 12px;
   line-height: 1.45;
-  color: rgba(244, 244, 244, 0.7);
+  color: var(--text-secondary);
 }
 
 #morocco-pack-catalog a,
 #morocco-pack-wiki a {
-  color: #f4f4f4;
+  color: var(--text-primary);
 }
 
 /* Cesium's stock attribution lightbox grows with every registered data source.

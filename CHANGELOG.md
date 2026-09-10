@@ -9,9 +9,12 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 - Local Mac app packaging now uses a dedicated eye-mark Dock icon (`public/app-icon.png`) and `npm run mac:refresh` rebuilds `~/Applications/God's Eye View.app`, pins it to the Dock, and relaunches it.
 - Morocco pack parks tiny 3D `airplane.glb` models on Moroccan airports from OpenSky arrivals/departures and live ADS-B, refreshed every five minutes.
-- Morocco pack UI follows inDrive's map home (destination field, city tiles,
-  lime fly action) and Glovo's circular category chips — both apps used
-  daily in Moroccan cities.
+
+### Changed
+
+- Morocco pack flag and sheet now match the glass HUD menus (DATA LAYERS /
+  LOCATION / CCTV): cyan accent chips, mono panel title, and `scene-btn`
+  pack/fly controls instead of the lime consumer-app popup.
 
 ### Fixed
 

@@ -1,7 +1,7 @@
 /**
- * Bottom-left Morocco flag + city sheet.
- * Layout follows inDrive's map home (sheet over the map, destination
- * field, service tiles, lime primary) and Glovo's circular category chips.
+ * Bottom-left Morocco flag + glass HUD sheet.
+ * Matches DATA LAYERS / LOCATION / CCTV: glass panel, mono title,
+ * scene-btn actions, and location-style chips — not a consumer-app sheet.
  */
 
 import * as Cesium from 'cesium';
@@ -23,15 +23,13 @@ import {
   formatMoroccoWeather,
 } from './data/moroccoContextData.js';
 
-const DEFAULT_COMPANIONS = Object.freeze({
-  flights: true,
-  'ais-live-vessels': true,
-  earthquakes: true,
-  'local-firms': true,
-  traffic: true,
-  radio: false,
-  'oncf-trains': true,
-});
+const MOROCCO_LAYER = 'morocco';
+
+const DEFAULT_COMPANIONS = Object.freeze(
+  Object.fromEntries(
+    MOROCCO_COMPANION_LAYERS.map((layer) => [layer.id, layer.id !== 'radio']),
+  ),
+);
 
 function readStore() {
   try {
@@ -167,9 +165,39 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
     flag.classList.toggle('active', state.enabled);
     sheet.hidden = !state.open;
     root.classList.toggle('open', state.open);
-    enableBtn.textContent = state.enabled ? 'Pack on' : 'Turn pack on';
-    enableBtn.setAttribute('aria-pressed', String(state.enabled));
+    if (enableBtn) {
+      enableBtn.textContent = state.enabled ? 'PACK ON' : 'PACK OFF';
+      enableBtn.setAttribute('aria-pressed', String(state.enabled));
+    }
     syncCityPills();
+  };
+
+  const paintChips = () => {
+    for (const button of kindsHost?.querySelectorAll('[data-kind]') || []) {
+      button.setAttribute('aria-pressed', String(state.kinds.includes(button.dataset.kind)));
+    }
+    for (const button of liveHost?.querySelectorAll('[data-layer]') || []) {
+      button.setAttribute('aria-pressed', String(!!state.companions[button.dataset.layer]));
+    }
+  };
+
+  const applyEnabled = async ({ flyIfNeeded = false } = {}) => {
+    persist();
+    paintFlag();
+    paintChips();
+    syncCityPills();
+    if (!dataManager) return;
+    await dataManager.setEnabled(MOROCCO_LAYER, state.enabled, { origin: 'user' });
+    if (state.enabled) {
+      dataManager.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
+      for (const [layerId, on] of Object.entries(state.companions)) {
+        if (on) await dataManager.setEnabled(layerId, true, { origin: 'user' });
+      }
+      if (flyIfNeeded && !cameraInMorocco(viewer)) {
+        styleManager?._stampNavigation?.();
+        flyToMoroccoOverview(viewer);
+      }
+    }
   };
 
   const setKindButtons = () => {
@@ -184,7 +212,9 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
         const next = new Set(state.kinds);
         if (next.has(id)) next.delete(id);
         else next.add(id);
-        state.kinds = normalizeMoroccoKinds([...next].length ? [...next] : [...MOROCCO_DEFAULT_KINDS]);
+        state.kinds = normalizeMoroccoKinds(
+          [...next].length ? [...next] : [...MOROCCO_DEFAULT_KINDS],
+        );
         persist();
         paintChips();
         dataManager?.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
@@ -200,13 +230,9 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
       if (!city) continue;
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = cityId === 'morocco' ? 'morocco-pack-tile morocco-pack-tile-wide' : 'morocco-pack-tile';
+      button.className = 'morocco-pack-chip';
       button.dataset.city = cityId;
-      const title = document.createElement('strong');
-      title.textContent = city.name;
-      const blurb = document.createElement('span');
-      blurb.textContent = cityId === 'morocco' ? 'Whole kingdom' : 'City rides';
-      button.append(title, blurb);
+      button.textContent = city.name;
       button.addEventListener('click', () => {
         if (!state.enabled) {
           state.enabled = true;
@@ -242,42 +268,14 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
     }
   };
 
-  const paintChips = () => {
-    for (const button of kindsHost?.querySelectorAll('[data-kind]') || []) {
-      button.setAttribute('aria-pressed', String(state.kinds.includes(button.dataset.kind)));
-    }
-    for (const button of liveHost?.querySelectorAll('[data-layer]') || []) {
-      button.setAttribute('aria-pressed', String(!!state.companions[button.dataset.layer]));
-    }
-  };
-
-  const MOROCCO_LAYER = 'morocco';
-
-  const applyEnabled = async ({ flyIfNeeded = false } = {}) => {
-    persist();
-    paintFlag();
-    paintChips();
-    syncCityPills();
-    if (!dataManager) return;
-    await dataManager.setEnabled(MOROCCO_LAYER, state.enabled, { origin: 'user' });
-    if (state.enabled) {
-      dataManager.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
-      for (const [layerId, on] of Object.entries(state.companions)) {
-        if (on) await dataManager.setEnabled(layerId, true, { origin: 'user' });
-      }
-      if (flyIfNeeded && !cameraInMorocco(viewer)) {
-        styleManager?._stampNavigation?.();
-        flyToMoroccoOverview(viewer);
-      }
-    }
-  };
-
   const refreshContext = async () => {
     const carto = viewer.camera?.positionCartographic;
     const lat = carto ? Cesium.Math.toDegrees(carto.latitude) : MOROCCO_OVERVIEW.lat;
     const lon = carto ? Cesium.Math.toDegrees(carto.longitude) : MOROCCO_OVERVIEW.lon;
     try {
-      const response = await fetch(`/api/morocco/context?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+      const response = await fetch(
+        `/api/morocco/context?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`,
+      );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       if (countryLine) countryLine.textContent = formatMoroccoCountryLine(payload.country);
@@ -302,14 +300,18 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
       }
       if (metarLine) {
         const metar = payload.metar;
-        metarLine.textContent = metar?.raw
-          ? `${metar.icao}${metar.fltCat ? ` ${metar.fltCat}` : ''} · ${metar.raw}`
+        const raw = metar?.rawOb || metar?.raw || '';
+        const icao = metar?.icaoId || metar?.icao || '';
+        metarLine.textContent = raw
+          ? `${icao}${metar.fltCat ? ` ${metar.fltCat}` : ''} · ${raw}`
           : '';
       }
       if (sunLine) {
         const rise = clockFromIso(payload.weather?.sunrise);
         const set = clockFromIso(payload.weather?.sunset);
-        sunLine.textContent = rise && set ? `Sunrise ${rise} · sunset ${set} (Casablanca)` : '';
+        sunLine.textContent = rise && set
+          ? `Sunrise ${rise} · sunset ${set} (Casablanca)`
+          : '';
       }
       if (prayerLine) {
         const prayer = payload.prayer;
@@ -320,7 +322,7 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
       if (quakeLine) {
         const quake = Array.isArray(payload.quakes) ? payload.quakes[0] : null;
         quakeLine.textContent = quake
-          ? `Quake M${quake.mag.toFixed(1)} · ${quake.region}`
+          ? `Quake M${Number(quake.mag).toFixed(1)} · ${quake.region || quake.flynn_region || 'Morocco'}`
           : '';
       }
       fillLinkList(
@@ -328,9 +330,15 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
         Array.isArray(payload.wikipedia) ? payload.wikipedia : [],
         'No nearby Wikipedia pages',
       );
+      const catalogItems = Array.isArray(payload.catalog)
+        ? payload.catalog
+        : (Array.isArray(payload.catalog?.results) ? payload.catalog.results : []);
       fillLinkList(
         catalog,
-        (Array.isArray(payload.catalog) ? payload.catalog : []).slice(0, 8),
+        catalogItems.slice(0, 8).map((item) => ({
+          title: item.title || item.name || item.id,
+          url: item.url || item.link || null,
+        })),
         payload.country?.name
           ? `${payload.country.name} · official catalog unavailable`
           : 'Official catalog unavailable',
