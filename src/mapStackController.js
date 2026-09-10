@@ -16,6 +16,19 @@ export function photorealUnavailableReason(hasCredentials) {
   return `${keySetupRequirement('google-maps')} — or a Cesium ion token for the ion-hosted route`;
 }
 
+/** Camera height above which Bing Labels fill the orbital globe under Google 3D. */
+export const PHOTO_BING_GLOBE_HEIGHT_M = 80000;
+
+/**
+ * Combined ion stack: photoreal mesh up close, Bing labeled imagery from orbit.
+ * @param {number} heightM Camera ellipsoidal height in meters.
+ * @param {boolean} hasIonToken Whether a Cesium ion token can serve Bing imagery.
+ * @returns {boolean}
+ */
+export function photorealBingGlobeVisible(heightM, hasIonToken) {
+  return Boolean(hasIonToken) && Number.isFinite(heightM) && heightM > PHOTO_BING_GLOBE_HEIGHT_M;
+}
+
 export const MAP_STACKS = [
   {
     id: 'photoreal',
@@ -99,7 +112,9 @@ export class MapStackController {
     this.cesiumToken = String(cesiumToken || '').trim();
     this._onChange = onChange;
     this._onError = onError;
-    this._activeId = googleTileset ? initialStack : 'esri-imagery';
+    this._activeId = googleTileset
+      ? initialStack
+      : (this.cesiumToken ? 'bing-labels' : 'esri-imagery');
     this._imageryLayer = null;
     this._activeImageryProvider = null;
     this._removeImageryErrorListener = null;
@@ -127,9 +142,12 @@ export class MapStackController {
     // (fast OSM) would otherwise revert the user's last choice (M7). Each call
     // captures a generation and aborts its own commit once superseded.
     this._switchGen = 0;
+    this._photorealBingBlend = false;
+    this._photorealBingRemove = null;
+    this._savedPercentageChanged = null;
 
     if (!this.getStack(this._activeId) || !this.isStackAvailable(this._activeId)) {
-      this._activeId = googleTileset ? 'photoreal' : 'esri-imagery';
+      this._activeId = googleTileset ? 'photoreal' : (this.cesiumToken ? 'bing-labels' : 'esri-imagery');
     }
   }
 
@@ -267,25 +285,76 @@ export class MapStackController {
   }
 
   async _activatePhotoreal(gen) {
-    this._removeImageryLayer();
-    this._syncEsriAttribution(null); // Esri is no longer on screen.
     if (this.googleTileset) this.googleTileset.show = true;
+    this._syncEsriAttribution(null);
     this.viewer.scene.globe.show = false;
-    // Terrain is left UNTOUCHED here. The photoreal globe is hidden
-    // (`globe.show = false`), so the terrain provider is inert — it renders and
-    // streams nothing. Routing this through `_setWorldTerrainEnabled(false)`
-    // would make the DEFAULT startup stack await a keyless Re:Earth `layer.json`
-    // fetch it can't use, delaying photoreal boot on a slow/blocked network and
-    // (on failure) caching the flat `EllipsoidTerrainProvider` fallback for
-    // later OSM switches. The Re:Earth fetch is therefore lazy: it happens on
-    // the first switch to an actual globe stack (`_activateGlobeStack`).
-    // `_terrainMode` is intentionally not changed — every globe-stack transition
-    // re-derives the correct provider from it (null/'world'/'keyless'), so
-    // leaving it as-is keeps the next switch correct without a photoreal fetch.
+
+    if (this.cesiumToken) {
+      try {
+        const bing = this.getStack('bing-labels');
+        const resolution = await this._getImageryProvider(bing);
+        if (gen != null && gen !== this._switchGen) return;
+        this._removeImageryLayer();
+        this._imageryLayer = new Cesium.ImageryLayer(resolution.provider);
+        this._activeImageryProvider = resolution.provider;
+        this.viewer.imageryLayers.add(this._imageryLayer, 0);
+        await this._setWorldTerrainEnabled(true, gen);
+        if (gen != null && gen !== this._switchGen) return;
+        this._setPhotorealBingBlend(true);
+        return;
+      } catch (error) {
+        console.warn('[MapStack] Bing Labels underlay unavailable for Google 3D:', error);
+      }
+    }
+
+    this._removeImageryLayer();
+    this._setPhotorealBingBlend(false);
+    this.viewer.scene.globe.show = false;
     void gen;
   }
 
+  /**
+   * Keep Google 3D tiles on for city scale and reveal Bing Labels on the
+   * ellipsoid only from orbit, where photoreal tiles no longer cover the planet.
+   */
+  _setPhotorealBingBlend(enabled) {
+    const camera = this.viewer?.camera;
+    if (enabled === this._photorealBingBlend) {
+      if (enabled) this._syncPhotorealBingGlobe();
+      return;
+    }
+    this._photorealBingBlend = enabled;
+    if (enabled && camera?.changed?.addEventListener) {
+      this._savedPercentageChanged = camera.percentageChanged;
+      camera.percentageChanged = Math.min(Number(camera.percentageChanged) || 0.5, 0.05);
+      this._photorealBingRemove = camera.changed.addEventListener(() => {
+        this._syncPhotorealBingGlobe();
+      });
+      this._syncPhotorealBingGlobe();
+      return;
+    }
+    if (this._photorealBingRemove) {
+      this._photorealBingRemove();
+      this._photorealBingRemove = null;
+    }
+    if (camera && this._savedPercentageChanged != null) {
+      camera.percentageChanged = this._savedPercentageChanged;
+      this._savedPercentageChanged = null;
+    }
+    if (enabled) this._syncPhotorealBingGlobe();
+  }
+
+  _syncPhotorealBingGlobe() {
+    if (!this._photorealBingBlend || !this.viewer?.scene?.globe) return;
+    const height = this.viewer.camera?.positionCartographic?.height;
+    const showGlobe = photorealBingGlobeVisible(height, !!this.cesiumToken);
+    this.viewer.scene.globe.show = showGlobe;
+    if (this.googleTileset) this.googleTileset.show = !showGlobe;
+    governorRequestRender('map-stack-blend');
+  }
+
   async _activateGlobeStack(stack, gen) {
+    this._setPhotorealBingBlend(false);
     const resolution = await this._getImageryProvider(stack);
     // A newer switch started while the provider was resolving — don't touch the
     // scene's imagery layers, the winning switch already owns them (M7).

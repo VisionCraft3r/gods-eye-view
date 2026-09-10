@@ -26,6 +26,9 @@ import {
   LayerStateCoordinator,
 } from './data/layerState.js';
 import { renderMapStackChips, syncMapStackChips } from './mapStackChips.js';
+import { installZoomSlider } from './zoomSlider.js';
+import { installHeadingOrb } from './headingOrb.js';
+import { installMoroccoPack } from './moroccoPackUi.js';
 import { OrbitController } from './orbit.js';
 import {
   CelestialRing,
@@ -285,6 +288,9 @@ const LEFT_STACK_OBSTACLE_SELECTOR = [
   '#cockpit-hud .cockpit-topline > div',
   '#title-bar',
   '#style-indicator',
+  '#zoom-slider',
+  '#camera-nav',
+  '#heading-orb',
   '#top-center-actions',
   '#traffic-sync-chip',
   '#cctv-sync-chip',
@@ -299,6 +305,7 @@ const LEFT_STACK_OBSTACLE_SELECTOR = [
   '#cockpit-context',
   '#cesium-credits .cesium-credit-logoContainer',
   '#cesium-credits .cesium-credit-textContainer',
+  '#morocco-pack',
   '#location-bar',
   '#control-panel',
   '#gev-voice-control',
@@ -336,6 +343,9 @@ const RIGHT_STACK_OBSTACLE_SELECTOR = [
   '#cockpit-hud .cockpit-topline > div',
   '#title-bar',
   '#style-indicator',
+  '#zoom-slider',
+  '#camera-nav',
+  '#heading-orb',
   '#top-center-actions',
   '#traffic-sync-chip',
   '#cctv-sync-chip',
@@ -2358,6 +2368,7 @@ export class StyleManager {
     this._globalLoadingDetail = document.getElementById('global-loading-detail');
     this._resetGlobeBtn = document.getElementById('reset-globe-view');
     this._cockpitResetGlobeBtn = document.getElementById('cockpit-reset-globe');
+    this._headingOrbResetBtn = document.getElementById('heading-orb-reset');
     this._styleButtons = document.getElementById('style-buttons');
     this._trafficSyncChip = document.getElementById('traffic-sync-chip');
     this._trafficSyncLabel = document.getElementById('traffic-sync-label');
@@ -2627,6 +2638,17 @@ export class StyleManager {
     this._initShareButton();
     this._initClearSelectedLayersButton();
     this._initResetGlobeButton();
+    this._removeZoomSlider = installZoomSlider(this.viewer, {
+      stampNavigation: () => this._stampNavigation(),
+      onUserZoom: () => this._syncShareState(),
+    });
+    this._removeHeadingOrb = installHeadingOrb(this.viewer, {
+      stampNavigation: () => this._stampNavigation(),
+      onUserRotate: () => {
+        this._stopOrbit();
+        this._syncShareState();
+      },
+    });
     this._initHUDToggle();
     this._initModels3dToggle();
     this._applyGlobalPostDefaults();
@@ -4532,6 +4554,14 @@ export class StyleManager {
         this._syncModels3dFromLayerState(this._layerStateCoordinator?.getDurableState());
       });
     }
+    this._removeMoroccoPack?.();
+    this._removeMoroccoPack = this._dataManager
+      ? installMoroccoPack({
+        viewer: this.viewer,
+        dataManager: this._dataManager,
+        styleManager: this,
+      })
+      : null;
   }
 
   _handleShareTrackingRestoreStatus(result) {
@@ -9264,6 +9294,8 @@ export class StyleManager {
       const pill = document.createElement('button');
       pill.className = 'location-pill';
       pill.dataset.locationId = cityId;
+      if (city.pack) pill.dataset.pack = city.pack;
+      pill.hidden = city.pack === 'morocco';
       pill.textContent = city.name;
       pill.addEventListener('click', () => this._onCityPillClick(cityId));
       this._locationPills.appendChild(pill);
@@ -9614,7 +9646,7 @@ export class StyleManager {
   /** Wire the persistent reset control to the same route used by voice. */
   _initResetGlobeButton() {
     this._globeResetHandler = () => { this.resetToGlobeView(); };
-    for (const button of [this._resetGlobeBtn, this._cockpitResetGlobeBtn]) {
+    for (const button of [this._resetGlobeBtn, this._cockpitResetGlobeBtn, this._headingOrbResetBtn]) {
       button?.addEventListener('click', this._globeResetHandler);
     }
   }
@@ -9745,6 +9777,7 @@ export class StyleManager {
         },
       };
       this._resetGlobeBtn?.setAttribute('aria-label', 'Reset to full globe view');
+      this._headingOrbResetBtn?.setAttribute('aria-label', 'Reset to full globe view');
       this._cockpitResetGlobeBtn?.setAttribute('aria-label', 'Reset cockpit to full globe view');
       this._globeResetPromise = null;
       resolveReset(result);
@@ -9754,6 +9787,7 @@ export class StyleManager {
       finish(!Number.isFinite(height) || Math.abs(height - GLOBE_VIEW.heightM) > 1000);
     }, 4200);
     this._resetGlobeBtn?.setAttribute('aria-label', 'Resetting to full globe view');
+    this._headingOrbResetBtn?.setAttribute('aria-label', 'Resetting to full globe view');
     this._cockpitResetGlobeBtn?.setAttribute('aria-label', 'Resetting cockpit to full globe view');
     const target = flyToGlobeView(this.viewer, {
       onComplete: () => finish(false),
@@ -10205,8 +10239,15 @@ export class StyleManager {
     if (this._globeResetHandler) {
       this._resetGlobeBtn?.removeEventListener('click', this._globeResetHandler);
       this._cockpitResetGlobeBtn?.removeEventListener('click', this._globeResetHandler);
+      this._headingOrbResetBtn?.removeEventListener('click', this._globeResetHandler);
       this._globeResetHandler = null;
     }
+    this._removeZoomSlider?.();
+    this._removeZoomSlider = null;
+    this._removeHeadingOrb?.();
+    this._removeHeadingOrb = null;
+    this._removeMoroccoPack?.();
+    this._removeMoroccoPack = null;
     if (this._clearSelectedLayersBtn && this._clearSelectedLayersHandler) {
       this._clearSelectedLayersBtn.removeEventListener('click', this._clearSelectedLayersHandler);
       this._clearSelectedLayersHandler = null;

@@ -185,6 +185,28 @@ const CITY_ALIASES = new Map([
   ['washington', 'dc'],
   ['washington dc', 'dc'],
   ['washington d.c.', 'dc'],
+  ['casablanca', 'casablanca'],
+  ['casa', 'casablanca'],
+  ['rabat', 'rabat'],
+  ['marrakech', 'marrakech'],
+  ['marrakesh', 'marrakech'],
+  ['tangier', 'tangier'],
+  ['tanger', 'tangier'],
+  ['fez', 'fez'],
+  ['fes', 'fez'],
+  ['agadir', 'agadir'],
+  ['ouarzazate', 'ouarzazate'],
+  ['warzazat', 'ouarzazate'],
+  ['meknes', 'meknes'],
+  ['essaouira', 'essaouira'],
+  ['mogador', 'essaouira'],
+  ['chefchaouen', 'chefchaouen'],
+  ['chaouen', 'chefchaouen'],
+  ['tetouan', 'tetouan'],
+  ['tetuan', 'tetouan'],
+  ['kenitra', 'kenitra'],
+  ['morocco', 'morocco'],
+  ['maroc', 'morocco'],
 ]);
 
 // Basemap stack vocabulary. Switching requires an explicit stack name
@@ -1206,6 +1228,9 @@ const RADIO_COUNTRY_CENTERS = new Map([
   ['usa', { lat: 39.8, lon: -98.6, country: 'US', label: 'United States' }],
   ['united states', { lat: 39.8, lon: -98.6, country: 'US', label: 'United States' }],
   ['united states of america', { lat: 39.8, lon: -98.6, country: 'US', label: 'United States' }],
+  ['ma', { lat: 31.8, lon: -7.1, country: 'MA', label: 'Morocco' }],
+  ['morocco', { lat: 31.8, lon: -7.1, country: 'MA', label: 'Morocco' }],
+  ['maroc', { lat: 31.8, lon: -7.1, country: 'MA', label: 'Morocco' }],
 ]);
 
 /** Resolve curated cities and common country requests without moving the camera. */
@@ -2927,6 +2952,7 @@ function inferCountry(latitude, longitude) {
     { name: 'China', south: 18.0, north: 53.8, west: 73.0, east: 135.2 },
     { name: 'Russia', south: 41.0, north: 82.0, west: 19.0, east: 180.0 },
     { name: 'United States', south: 24.0, north: 49.8, west: -125.0, east: -66.0 },
+    { name: 'Morocco', south: 20.8, north: 36.05, west: -17.25, east: -0.85 },
   ];
   const region = regions.find((item) => (
     latitude >= item.south &&

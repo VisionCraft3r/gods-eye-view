@@ -20,6 +20,7 @@ import { composeLocalityTag } from './hudLocality.js';
 import { ellipsoidalToMslDisplayM, ensureGeoidReady, geoidHeight } from './data/geoid.js';
 import { getBasemapLabelContext } from './voice/gevActions.js';
 import { isHudSummaryUnconfigured } from './hudSummaryResponse.js';
+import { getLocale } from './i18n/index.js';
 
 /** Color palettes keyed by shader mode; applied as CSS custom properties. */
 const HUD_COLORS = {
@@ -662,7 +663,7 @@ export class IntelHUD {
       const response = await fetch(HUD_SUMMARY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(context),
+        body: JSON.stringify({ ...context, locale: getLocale() }),
         signal: controller.signal,
       });
       const data = await response.json().catch(() => null);

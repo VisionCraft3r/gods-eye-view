@@ -81,6 +81,79 @@ export const DATA_CREDITS = [
       '(ODbL 1.0; incomplete mapped context)',
   },
   {
+    key: 'morocco-osm',
+    html:
+      'Morocco places (airports, ports, rail, hospitals, landmarks): ' +
+      '<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> ' +
+      'via Overpass (ODbL 1.0)',
+  },
+  {
+    key: 'data-gov-ma',
+    html:
+      'Morocco official open-data catalog: ' +
+      '<a href="https://data.gov.ma/" target="_blank" rel="noopener">data.gov.ma</a> ' +
+      '(CKAN)',
+  },
+  {
+    key: 'hdx-morocco',
+    html:
+      'Morocco humanitarian datasets: ' +
+      '<a href="https://data.humdata.org/" target="_blank" rel="noopener">HDX / OCHA</a>',
+  },
+  {
+    key: 'morocco-oncf',
+    html:
+      'Morocco rail stations: unofficial ONCF GTFS via ' +
+      '<a href="https://github.com/newsbubbles/rail_maroc_oncf" target="_blank" rel="noopener">rail_maroc_oncf</a> ' +
+      '(ODbL 1.0)',
+  },
+  {
+    key: 'morocco-ourairports',
+    html:
+      'Morocco airports: ' +
+      '<a href="https://ourairports.com/" target="_blank" rel="noopener">OurAirports</a> ' +
+      '(public domain)',
+  },
+  {
+    key: 'morocco-airport-aircraft',
+    html:
+      'Morocco airport 3D aircraft: live ADS-B via ' +
+      '<a href="https://opensky-network.org" target="_blank" rel="noopener">OpenSky Network</a> ' +
+      'and <a href="https://adsb.lol" target="_blank" rel="noopener">adsb.lol</a> ' +
+      '(ODbL 1.0); apron occupancy from OpenSky arrivals/departures',
+  },
+  {
+    key: 'morocco-unesco',
+    html:
+      'Morocco World Heritage sites: ' +
+      '<a href="https://whc.unesco.org/en/statesparties/ma" target="_blank" rel="noopener">UNESCO WHC</a>',
+  },
+  {
+    key: 'morocco-aviationweather',
+    html:
+      'Morocco METAR: ' +
+      '<a href="https://aviationweather.gov/data/api/" target="_blank" rel="noopener">AviationWeather.gov</a>',
+  },
+  {
+    key: 'morocco-emsc',
+    html:
+      'Morocco earthquakes: ' +
+      '<a href="https://www.seismicportal.eu/" target="_blank" rel="noopener">EMSC / seismicportal.eu</a>',
+  },
+  {
+    key: 'morocco-wikipedia',
+    html:
+      'Morocco nearby pages: ' +
+      '<a href="https://www.mediawiki.org/wiki/API:Geosearch" target="_blank" rel="noopener">Wikipedia geosearch</a>',
+  },
+  {
+    key: 'morocco-aladhan',
+    html:
+      'Morocco prayer times: ' +
+      '<a href="https://aladhan.com/prayer-times-api" target="_blank" rel="noopener">Aladhan</a> ' +
+      '(method 21)',
+  },
+  {
     key: 'cockpit-place-osm',
     html:
       'Cockpit place context: ' +

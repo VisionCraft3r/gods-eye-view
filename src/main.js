@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import { StyleManager } from './ui.js';
 import { flyToAustin } from './camera.js';
+import { installMacTrackpadGestures } from './macTrackpadGestures.js';
 import { DataLayerManager } from './data/manager.js';
 import flightsLayer from './data/flights.js';
 import militaryFlightsLayer from './data/militaryFlights.js';
@@ -14,6 +15,7 @@ import bikeshareLayer from './data/bikeshare.js';
 import aisLiveVesselsLayer from './data/aisLiveVessels.js';
 import militaryInstallationsLayer from './data/militaryInstallations.js';
 import militaryAwarenessLayer from './data/militaryAwareness.js';
+import moroccoPlacesLayer from './data/moroccoPlaces.js';
 import localDataLayers from './data/localLayers.js';
 import { LAYER_STATE_REGISTRY } from './data/layerState.js';
 import { registerDataCredits } from './data/dataCredits.js';
@@ -32,9 +34,11 @@ import {
 } from './renderGovernor.js';
 import { installScopeMask } from './scopeMask.js';
 import { initFirstRunExperience } from './firstRunExperience.js';
-import { initKeySetup } from './keySetup.js';
+import { initKeySetup, stripKeylessBasemapFromHash } from './keySetup.js';
 import { loadPhotorealisticTileset } from './mapStartup.js';
+import { initI18n, t } from './i18n/index.js';
 
+initI18n();
 initLogoGaze();
 
 /**
@@ -73,7 +77,7 @@ async function init() {
   const loaderStatus = loadingScreen.querySelector('.loader-status');
 
   try {
-    loaderStatus.textContent = 'Configuring viewer...';
+    loaderStatus.textContent = t('Configuring viewer...');
 
     // A direct Google key provides Google 3D plus GEV place search. Cesium ion
     // can host the same 3D tiles and also powers Bing/world-terrain stacks.
@@ -124,6 +128,7 @@ async function init() {
     // 2026-08-05 perf investigation as a strict halving of idle burn on
     // 120 Hz hardware; a no-op on 60 Hz displays. (perf item 2)
     viewer.targetFrameRate = 60;
+    installMacTrackpadGestures(viewer);
 
     // Register per-layer data attribution into the "Data attribution" popover.
     // Required by each source's license (ODbL, CC BY-NC-SA, NASA FIRMS, etc.);
@@ -132,9 +137,8 @@ async function init() {
     // clutter the on-globe line. See docs/pre-ship-audit-2026-07-01.md H11.
     registerDataCredits(viewer);
 
-    // Hide Cesium's default globe — Google Photorealistic 3D Tiles provide their own
-    // globe at all LODs (street level → orbital). The default globe's 2D imagery
-    // clips through 3D tile buildings at close range.
+    // Hide Cesium's default globe at boot. Google 3D is the street-level surface;
+    // Bing Labels + World Terrain fill the orbital globe once the ion stack is on.
     viewer.scene.globe.show = false;
 
     // Keep a sky behind Google 3D Tiles, but soften Cesium's high-intensity
@@ -146,8 +150,8 @@ async function init() {
     viewer.scene.skyAtmosphere.brightnessShift = -0.08;
 
     loaderStatus.textContent = googleApiKey || cesiumToken
-      ? 'Loading Google 3D Tiles...'
-      : 'Loading the keyless globe...';
+      ? t('Loading Google 3D Tiles...')
+      : t('Loading the keyless globe...');
     const photoreal = await loadPhotorealisticTileset(Cesium, {
       googleApiKey,
       cesiumToken,
@@ -155,8 +159,6 @@ async function init() {
     const tileset = photoreal.tileset;
     if (tileset) {
       viewer.scene.primitives.add(tileset);
-      // NOTE: Cesium World Terrain intentionally disabled — conflicts with Google 3D Tiles at high zoom.
-      // Google Photorealistic 3D Tiles provide their own terrain/elevation.
       viewer.scene.globe.show = false;
       console.info(`[Init] Google 3D Tiles loaded via ${photoreal.route}.`);
     } else {
@@ -164,17 +166,26 @@ async function init() {
         const tileError = photoreal.errors.at(-1);
         console.warn('[Init] Google 3D Tiles unavailable, using the keyless globe:', tileError);
         const tileErrorDetail = describeError(tileError);
-        loaderStatus.textContent = `Google 3D Tiles unavailable (${tileErrorDetail}). Loading the keyless globe...`;
+        loaderStatus.textContent = t(`Google 3D Tiles unavailable (${tileErrorDetail}). Loading the keyless globe...`);
       }
       viewer.scene.globe.show = true;
     }
 
-    loaderStatus.textContent = 'Initializing systems...';
+    loaderStatus.textContent = t('Initializing systems...');
 
+    const defaultStack = tileset ? 'photoreal' : (cesiumToken ? 'bing-labels' : 'esri-imagery');
+    if (tileset && cesiumToken) {
+      try {
+        const next = stripKeylessBasemapFromHash(globalThis.location?.hash?.slice(1) || '');
+        if (next !== null) globalThis.history?.replaceState?.(null, '', `#${next}`);
+      } catch {
+        // Share-hash cleanup must never block the globe.
+      }
+    }
     const mapStackController = new MapStackController(viewer, {
       googleTileset: tileset,
       cesiumToken,
-      initialStack: tileset ? 'photoreal' : 'esri-imagery',
+      initialStack: defaultStack,
       // Task 5 (height-datum fix): rebroadcast stack changes as a window
       // CustomEvent so data layers (CCTV per-regime ground resolution) can
       // react without coupling MapStackController to layer modules. Fires on
@@ -185,7 +196,7 @@ async function init() {
       },
       onError: (message) => console.warn('[MapStack]', message),
     });
-    await mapStackController.setStack(tileset ? 'photoreal' : 'esri-imagery', { silent: true });
+    await mapStackController.setStack(defaultStack, { silent: true });
 
     // Initialize the style manager (post-processing, HUD, locations, share links)
     const styleManager = new StyleManager(viewer, { mapStackController });
@@ -197,10 +208,10 @@ async function init() {
 
     // If no share link state, do default fly-to Austin
     if (!styleManager.hasShareState) {
-      loaderStatus.textContent = 'Flying to Austin, TX...';
+      loaderStatus.textContent = t('Flying to Austin, TX...');
       flyToAustin(viewer);
     } else {
-      loaderStatus.textContent = 'Restoring shared view...';
+      loaderStatus.textContent = t('Restoring shared view...');
     }
 
     // Initialize data layer manager
@@ -221,6 +232,7 @@ async function init() {
     dataManager.register(militaryInstallationsLayer);
     dataManager.register(militaryAwarenessLayer);
     militaryAwarenessLayer.attachDataManager(dataManager);
+    dataManager.register(moroccoPlacesLayer);
     for (const layer of localDataLayers) {
       dataManager.register(layer);
     }
@@ -330,7 +342,7 @@ async function init() {
 
   } catch (error) {
     console.error("God's Eye View initialization failed:", error);
-    loaderStatus.textContent = `Error: ${describeError(error)}`;
+    loaderStatus.textContent = t(`Error: ${describeError(error)}`);
     loaderStatus.style.color = '#ff4444';
   }
 }

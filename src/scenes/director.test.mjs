@@ -22,7 +22,7 @@ import { SCENE_RECIPES } from './recipes.js';
 const REGISTERED = [
   'flights', 'military', 'earthquakes', 'satellites', 'rocket-launches', 'traffic',
   'cctv', 'radio', 'bikeshare', 'ais-live-vessels', 'military-installations',
-  'military-awareness', 'local-datacenters', 'local-dams',
+  'military-awareness', 'morocco', 'local-datacenters', 'local-dams',
   'telegeography-submarine-cables', 'local-firms',
 ];
 

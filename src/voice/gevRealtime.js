@@ -9,6 +9,7 @@ import {
   resolveVoiceModel,
   serializeCostLimits,
 } from './voiceCost.js';
+import { getLocale } from '../i18n/index.js';
 
 const TOKEN_URL = '/api/realtime/token';
 const REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls';
@@ -2312,7 +2313,7 @@ function isNearlyBlackFrame(ctx, width, height) {
  * against its own tier assumption.
  */
 async function fetchRealtimeToken(tier = DEFAULT_VOICE_TIER) {
-  const url = `${TOKEN_URL}?tier=${encodeURIComponent(resolveVoiceModel(tier).tier)}`;
+  const url = `${TOKEN_URL}?tier=${encodeURIComponent(resolveVoiceModel(tier).tier)}&lang=${encodeURIComponent(getLocale())}`;
   const response = await fetch(url, { cache: 'no-store' });
   const data = await response.json().catch(() => null);
   // Server echo first (authoritative, always present); the minted session

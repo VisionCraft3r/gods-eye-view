@@ -1,0 +1,17 @@
+---
+description: After product changes, rebuild the local Mac app, restart it, then commit and push.
+alwaysApply: true
+---
+
+# Mac app refresh, commit, and push
+
+When a change is complete (code, UI, data, icon, or desktop shell):
+
+1. Rebuild and install the local app: `npm run mac:package`.
+2. Restart so the Dock copy matches disk: quit **God's Eye View** if it is running, then `open "$HOME/Applications/God's Eye View.app"`. Prefer `npm run mac:refresh` when that script exists (package + Dock pin + relaunch).
+3. Keep the Dock tile: the packaged app lives at `~/Applications/God's Eye View.app` with `AppIcon.icns` from `public/app-icon.png`. Do not leave a generic Electron icon.
+4. Document user-visible work in `CHANGELOG.md` (Unreleased) and `DATA_SOURCES.md` when sources or APIs change.
+5. Commit with a heredoc message (why, not file laundry). Stage the files that belong to the change. Never stage `.env`, credentials, `.gev-cache/`, or `dist/`.
+6. Push the current branch to its tracked remote (`git push`). Do not force-push `main`/`master`.
+
+Do this at the end of the same turn as the change, unless the user said not to commit or not to push.

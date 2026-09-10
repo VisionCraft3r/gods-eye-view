@@ -5,6 +5,11 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ## [Unreleased]
 
+### Added
+
+- Local Mac app packaging now uses a dedicated eye-mark Dock icon (`public/app-icon.png`) and `npm run mac:refresh` rebuilds `~/Applications/God's Eye View.app`, pins it to the Dock, and relaunches it.
+- Morocco pack parks tiny 3D `airplane.glb` models on Moroccan airports from OpenSky arrivals/departures and live ADS-B, refreshed every five minutes.
+
 ### Fixed
 
 - Mapped-site outages show their scheduled retry countdown and distinguish

@@ -173,6 +173,7 @@ const CREDIT_EXPECTATIONS = {
   bikeshare: /GBFS|bikeshare/i,
   'ais-live-vessels': /AISStream/i,
   'military-installations': /OpenStreetMap/i,
+  morocco: /OpenStreetMap|OpenSky/i,
   'local-datacenters': /OpenStreetMap/i,
   'local-dams': /OpenStreetMap/i,
   'local-firms': /FIRMS/i,

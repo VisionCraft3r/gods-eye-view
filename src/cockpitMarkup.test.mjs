@@ -470,7 +470,7 @@ test('Reset releases Contact camera ownership through its selection-preserving r
   assert.match(ui, /this\._cockpitResetGlobeBtn = document\.getElementById\('cockpit-reset-globe'\)/);
   assert.match(
     ui,
-    /for \(const button of \[this\._resetGlobeBtn, this\._cockpitResetGlobeBtn\]\) \{[\s\S]*?addEventListener\('click', this\._globeResetHandler\)/,
+    /for \(const button of \[this\._resetGlobeBtn, this\._cockpitResetGlobeBtn, this\._headingOrbResetBtn\]\) \{[\s\S]*?addEventListener\('click', this\._globeResetHandler\)/,
     'both reset controls must delegate to the one shared reset route',
   );
   assert.match(ui, /if \(this\.resetGlobeButton\) this\.resetGlobeButton\.hidden = false;/);

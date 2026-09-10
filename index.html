@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>God's Eye View</title>
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <link rel="apple-touch-icon" href="/app-icon.png" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -35,6 +36,62 @@
     <span class="indicator-value" id="active-style-name">NORMAL</span>
   </div>
 
+  <div id="zoom-slider">
+    <span class="zoom-slider-label" id="zoom-slider-label">ZOOM</span>
+    <div class="zoom-slider-modes" role="radiogroup" aria-label="Zoom slider mode">
+      <button type="button" id="zoom-slider-mode-camera" class="zoom-slider-mode active" role="radio" aria-checked="true" tabindex="0" data-zoom-mode="camera" title="Camera zoom mode">CAM</button>
+      <button type="button" id="zoom-slider-mode-height" class="zoom-slider-mode" role="radio" aria-checked="false" tabindex="-1" data-zoom-mode="height" title="Height zoom mode">HGT</button>
+    </div>
+    <button type="button" id="zoom-slider-in" aria-label="Zoom in" title="Zoom in">
+      <span class="material-symbols-outlined" aria-hidden="true">add</span>
+    </button>
+    <input
+      id="zoom-slider-range"
+      type="range"
+      min="0"
+      max="1000"
+      step="1"
+      value="700"
+      orient="vertical"
+      aria-orientation="vertical"
+      aria-labelledby="zoom-slider-label"
+      aria-label="Camera zoom"
+    />
+    <button type="button" id="zoom-slider-out" aria-label="Zoom out" title="Zoom out">
+      <span class="material-symbols-outlined" aria-hidden="true">remove</span>
+    </button>
+    <span class="zoom-slider-value" id="zoom-slider-value">600 m</span>
+  </div>
+  <div id="camera-nav">
+    <button type="button" id="heading-orb-reset" aria-label="Reset to full globe view" title="Reset camera and return to full globe view">
+      <span class="material-symbols-outlined" aria-hidden="true">public</span>
+    </button>
+    <button type="button" id="heading-orb-3d" aria-label="3D view" title="View from a 3D angle" aria-pressed="false">
+      <span data-i18n-skip>3D</span>
+    </button>
+    <div id="heading-orb">
+      <button type="button" id="heading-orb-north" aria-label="Reset north up" title="Reset north up">N</button>
+      <div
+        id="heading-orb-well"
+        role="slider"
+        tabindex="0"
+        aria-label="Rotate view"
+        aria-valuemin="0"
+        aria-valuemax="359"
+        aria-valuenow="15"
+        aria-valuetext="015°"
+        title="Drag to rotate view"
+      >
+        <div class="heading-orb-globe" aria-hidden="true">
+          <div class="heading-orb-map"></div>
+          <div class="heading-orb-shade"></div>
+        </div>
+        <div class="heading-orb-needle" aria-hidden="true"></div>
+      </div>
+      <span class="heading-orb-value" id="heading-orb-value">015°</span>
+    </div>
+  </div>
+
   <!-- Top-center camera and share actions -->
   <nav id="top-center-actions" aria-label="Globe actions">
     <button id="clear-selected-layers" type="button" aria-label="Clear selected data layers" title="Turn off all selected data layers">
@@ -62,6 +119,45 @@
 
   <!-- Toast notification -->
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <aside id="morocco-pack">
+    <button type="button" id="morocco-pack-flag" aria-label="Morocco data pack" title="Morocco data pack" aria-pressed="false" aria-controls="morocco-pack-sheet">
+      <svg viewBox="0 0 9 6" aria-hidden="true" focusable="false">
+        <rect width="9" height="6" fill="#c1272d"/>
+        <polygon points="4.5,1.15 5.18,3.25 7.4,3.25 5.61,4.55 6.29,6.65 4.5,5.35 2.71,6.65 3.39,4.55 1.6,3.25 3.82,3.25" fill="none" stroke="#006233" stroke-width="0.28" transform="translate(0 -0.85)"/>
+      </svg>
+    </button>
+    <section id="morocco-pack-sheet" hidden aria-label="Morocco settings">
+      <header>
+        <div>
+          <p class="morocco-pack-kicker">Kingdom pack</p>
+          <h2>Morocco</h2>
+        </div>
+        <button type="button" id="morocco-pack-enable" aria-pressed="false">Turn pack on</button>
+      </header>
+      <button type="button" id="morocco-pack-fly">Fly to Morocco</button>
+      <div id="morocco-pack-brief" class="morocco-pack-brief">
+        <p id="morocco-pack-country" class="morocco-pack-status"></p>
+        <p id="morocco-pack-status" class="morocco-pack-status">Air quality — waiting</p>
+        <p id="morocco-pack-weather" class="morocco-pack-status"></p>
+        <p id="morocco-pack-marine" class="morocco-pack-status"></p>
+        <p id="morocco-pack-metar" class="morocco-pack-status"></p>
+        <p id="morocco-pack-sun" class="morocco-pack-status"></p>
+        <p id="morocco-pack-prayer" class="morocco-pack-status"></p>
+        <p id="morocco-pack-quake" class="morocco-pack-status"></p>
+      </div>
+      <p class="morocco-pack-label">Cities</p>
+      <div id="morocco-pack-cities" class="morocco-pack-chips"></div>
+      <p class="morocco-pack-label">Places</p>
+      <div id="morocco-pack-kinds" class="morocco-pack-chips"></div>
+      <p class="morocco-pack-label">Live feeds</p>
+      <div id="morocco-pack-live" class="morocco-pack-chips"></div>
+      <p class="morocco-pack-label">Nearby Wikipedia</p>
+      <ul id="morocco-pack-wiki"></ul>
+      <p class="morocco-pack-label">Official open data</p>
+      <ul id="morocco-pack-catalog"></ul>
+    </section>
+  </aside>
 
   <!-- Safe frame guides for recording composition -->
   <div id="safe-frame-overlay">
