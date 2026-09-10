@@ -13,6 +13,10 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ### Fixed
 
+- The local Mac app now copies a real Electron.app instead of a shell-script
+  launcher, so Dock and Finder can open it. It shows a window immediately,
+  finds Node even with Dock's stripped PATH, waits on both `127.0.0.1` and
+  `localhost`, and reports a dialog instead of quitting silently.
 - Mapped-site outages show their scheduled retry countdown and distinguish
   known Overpass rate limits, timeouts, and query failures. Search feedback no
   longer claims a refresh succeeded while the layer is unavailable or loading.

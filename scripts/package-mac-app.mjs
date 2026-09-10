@@ -1,96 +1,99 @@
 #!/usr/bin/env node
-import { mkdirSync, writeFileSync, chmodSync, copyFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import sharp from 'sharp';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const APP_NAME = "God's Eye View.app";
-const DIST = path.join(ROOT, 'dist', APP_NAME);
-const CONTENTS = path.join(DIST, 'Contents');
-const MACOS = path.join(CONTENTS, 'MacOS');
-const RESOURCES = path.join(CONTENTS, 'Resources');
-const ICONSET = path.join(ROOT, 'dist', 'GodsEye.iconset');
+const DIST = path.join(ROOT, "dist/God's Eye View.app");
+const INSTALL = path.join(os.homedir(), "Applications/God's Eye View.app");
+const ELECTRON_APP = path.join(ROOT, 'node_modules/electron/dist/Electron.app');
+const ICON_PNG = path.join(ROOT, 'public/app-icon.png');
+const MAIN = path.join(ROOT, 'desktop/main.mjs');
 
-function ensureDir(dir) {
-  mkdirSync(dir, { recursive: true });
-}
-
-async function buildIcon() {
-  const raster = path.join(ROOT, 'public/app-icon.png');
-  const svg = path.join(ROOT, 'public/logo.svg');
-  const source = existsSync(raster) ? raster : svg;
-  ensureDir(ICONSET);
-  const sizes = [16, 32, 64, 128, 256, 512, 1024];
-  for (const size of sizes) {
-    const png = await sharp(source).resize(size, size, {
-      fit: 'cover',
-      background: { r: 7, g: 11, b: 16, alpha: 1 },
-    }).png().toBuffer();
-    writeFileSync(path.join(ICONSET, `icon_${size}x${size}.png`), png);
-    if (size <= 512) {
-      writeFileSync(path.join(ICONSET, `icon_${size}x${size}@2x.png`), png);
-    }
-  }
-  const icns = path.join(RESOURCES, 'AppIcon.icns');
-  const result = spawnSync('iconutil', ['-c', 'icns', '-o', icns, ICONSET], { stdio: 'inherit' });
+function run(cmd, args, opts = {}) {
+  const result = spawnSync(cmd, args, { encoding: 'utf8', stdio: 'pipe', ...opts });
   if (result.status !== 0) {
-    console.warn('[mac-app] iconutil unavailable; the app will use the default Electron icon.');
+    throw new Error(
+      `${cmd} ${args.join(' ')} failed:\n${result.stderr || result.stdout || ''}`,
+    );
   }
+  return result;
 }
 
-ensureDir(MACOS);
-ensureDir(RESOURCES);
-
-const launcher = `#!/bin/bash
-set -euo pipefail
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-ROOT=${JSON.stringify(ROOT)}
-cd "$ROOT"
-if [[ ! -x "$ROOT/node_modules/.bin/electron" ]]; then
-  osascript -e 'display alert "God'"'"'s Eye View" message "Dependencies are missing. Open Terminal in the project folder and run npm install." as critical'
-  exit 1
-fi
-exec "$ROOT/node_modules/.bin/electron" "$ROOT/desktop/main.mjs"
-`;
-
-writeFileSync(path.join(MACOS, 'GodsEye'), launcher);
-chmodSync(path.join(MACOS, 'GodsEye'), 0o755);
-
-writeFileSync(path.join(CONTENTS, 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleName</key><string>God's Eye View</string>
-  <key>CFBundleDisplayName</key><string>God's Eye View</string>
-  <key>CFBundleIdentifier</key><string>com.godseye.view</string>
-  <key>CFBundleVersion</key><string>0.1.1</string>
-  <key>CFBundleShortVersionString</key><string>0.1.1</string>
-  <key>CFBundleExecutable</key><string>GodsEye</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleIconFile</key><string>AppIcon</string>
-  <key>LSMinimumSystemVersion</key><string>13.0</string>
-  <key>NSHighResolutionCapable</key><true/>
-  <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
-</dict>
-</plist>
-`);
-
-writeFileSync(path.join(CONTENTS, 'PkgInfo'), 'APPLGEV1');
-
-await buildIcon();
-
-if (existsSync(path.join(ROOT, 'public/logo.svg'))) {
-  copyFileSync(path.join(ROOT, 'public/logo.svg'), path.join(RESOURCES, 'logo.svg'));
-}
-if (existsSync(path.join(ROOT, 'public/app-icon.png'))) {
-  copyFileSync(path.join(ROOT, 'public/app-icon.png'), path.join(RESOURCES, 'app-icon.png'));
+function writeIcns(pngPath, icnsPath) {
+  const iconset = fs.mkdtempSync(path.join(os.tmpdir(), 'gev-iconset-'));
+  const sizes = [
+    [16, 'icon_16x16.png'],
+    [32, 'icon_16x16@2x.png'],
+    [32, 'icon_32x32.png'],
+    [64, 'icon_32x32@2x.png'],
+    [128, 'icon_128x128.png'],
+    [256, 'icon_128x128@2x.png'],
+    [256, 'icon_256x256.png'],
+    [512, 'icon_256x256@2x.png'],
+    [512, 'icon_512x512.png'],
+    [1024, 'icon_512x512@2x.png'],
+  ];
+  for (const [size, name] of sizes) {
+    run('sips', ['-z', String(size), String(size), pngPath, '--out', path.join(iconset, name)]);
+  }
+  const namedSet = `${iconset}.iconset`;
+  fs.rmSync(namedSet, { recursive: true, force: true });
+  fs.renameSync(iconset, namedSet);
+  run('iconutil', ['-c', 'icns', namedSet, '-o', icnsPath]);
+  fs.rmSync(namedSet, { recursive: true, force: true });
 }
 
-const applications = path.join(process.env.HOME || '', 'Applications', APP_NAME);
-ensureDir(path.dirname(applications));
-spawnSync('rm', ['-rf', applications], { stdio: 'inherit' });
-spawnSync('cp', ['-R', DIST, applications], { stdio: 'inherit' });
+if (!fs.existsSync(ELECTRON_APP)) {
+  throw new Error('Electron.app is missing. Run npm install first.');
+}
+if (!fs.existsSync(ICON_PNG)) {
+  throw new Error(`Missing Dock icon at ${ICON_PNG}`);
+}
 
-console.log(`Mac app ready:\n  ${DIST}\n  ${applications}`);
+fs.mkdirSync(path.dirname(DIST), { recursive: true });
+fs.rmSync(DIST, { recursive: true, force: true });
+run('cp', ['-R', ELECTRON_APP, DIST]);
+
+const contents = path.join(DIST, 'Contents');
+const resources = path.join(contents, 'Resources');
+const plist = path.join(contents, 'Info.plist');
+const appDir = path.join(resources, 'app');
+const icnsPath = path.join(resources, 'electron.icns');
+
+writeIcns(ICON_PNG, icnsPath);
+fs.copyFileSync(icnsPath, path.join(resources, 'AppIcon.icns'));
+
+fs.mkdirSync(appDir, { recursive: true });
+fs.writeFileSync(
+  path.join(appDir, 'package.json'),
+  `${JSON.stringify(
+    {
+      name: 'gods-eye-view',
+      type: 'module',
+      main: MAIN,
+    },
+    null,
+    2,
+  )}\n`,
+);
+
+const replacements = [
+  ['CFBundleDisplayName', "God's Eye View"],
+  ['CFBundleName', "God's Eye View"],
+  ['CFBundleIdentifier', 'com.godseye.view'],
+  ['CFBundleIconFile', 'electron.icns'],
+];
+for (const [key, value] of replacements) {
+  run('plutil', ['-replace', key, '-string', value, plist]);
+}
+
+fs.mkdirSync(path.dirname(INSTALL), { recursive: true });
+fs.rmSync(INSTALL, { recursive: true, force: true });
+run('cp', ['-R', DIST, INSTALL]);
+run('touch', [INSTALL]);
+
+console.log(`Installed ${INSTALL}`);
+console.log(`Launch: open "${INSTALL}"`);

@@ -32,6 +32,7 @@ function pinDock() {
 
 function restartApp() {
   spawnSync('osascript', ['-e', 'tell application "God\'s Eye View" to quit'], { stdio: 'inherit' });
+  spawnSync('osascript', ['-e', 'tell application "Electron" to quit'], { stdio: 'inherit' });
   spawnSync('sleep', ['1']);
   const opened = spawnSync('open', [APP_PATH], { stdio: 'inherit' });
   if (opened.status !== 0) {
