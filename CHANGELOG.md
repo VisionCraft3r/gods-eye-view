@@ -9,6 +9,7 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 - Local Mac app packaging now uses a dedicated eye-mark Dock icon (`public/app-icon.png`) and `npm run mac:refresh` rebuilds `~/Applications/God's Eye View.app`, pins it to the Dock, and relaunches it.
 - Morocco pack parks tiny 3D `airplane.glb` models on Moroccan airports from OpenSky arrivals/departures and live ADS-B, refreshed every five minutes.
+- ONCF trains move on the Morocco map from the public 3-day Voyages timetable: weekday vs weekend templates repeat forever, with sprites when zoomed out and tiny 3D railcars up close. Toggle them from the Morocco pack sheet or DATA LAYERS.
 
 ### Fixed
 

@@ -174,6 +174,7 @@ const CREDIT_EXPECTATIONS = {
   'ais-live-vessels': /AISStream/i,
   'military-installations': /OpenStreetMap/i,
   morocco: /OpenStreetMap|OpenSky/i,
+  'oncf-trains': /ONCF/i,
   'local-datacenters': /OpenStreetMap/i,
   'local-dams': /OpenStreetMap/i,
   'local-firms': /FIRMS/i,

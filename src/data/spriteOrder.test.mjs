@@ -10,7 +10,7 @@ import flightsLayer from './flights.js';
 import aisLiveVesselsLayer from './aisLiveVessels.js';
 import { createFirmsHeatmapLayer } from './firmsHeatmap.js';
 
-const ORDER = ['cctv', 'firms', 'bikeshare', 'ais', 'military', 'flights'];
+const ORDER = ['cctv', 'firms', 'bikeshare', 'ais', 'military', 'flights', 'oncf-trains'];
 
 function makePrimitives(initial = []) {
   return {

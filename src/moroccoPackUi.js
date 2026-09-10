@@ -30,6 +30,7 @@ const DEFAULT_COMPANIONS = Object.freeze({
   'local-firms': true,
   traffic: true,
   radio: false,
+  'oncf-trains': true,
 });
 
 function readStore() {

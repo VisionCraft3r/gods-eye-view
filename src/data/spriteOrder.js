@@ -6,6 +6,7 @@ export const SPRITE_LAYER_ORDER = Object.freeze([
   'ais',
   'military',
   'flights',
+  'oncf-trains',
 ]);
 
 /** @type {Map<string, Object>} */

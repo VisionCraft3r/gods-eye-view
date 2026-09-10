@@ -113,6 +113,7 @@ test('the Morocco flag sheet ships next to credits and StyleManager installs it'
   assert.match(css, /#morocco-pack \{/);
   assert.match(ui, /installMoroccoPack\(/);
   assert.match(main, /moroccoPlacesLayer/);
+  assert.match(main, /oncfTrainsLayer/);
   assert.match(readFileSync(new URL('./moroccoAirportAircraft.js', import.meta.url), 'utf8'), /airplane\.glb/);
   assert.match(readFileSync(new URL('../../vite.config.js', import.meta.url), 'utf8'), /\/api\/morocco\/airport-aircraft/);
   assert.match(locations, /ouarzazate:/);

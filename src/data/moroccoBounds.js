@@ -72,6 +72,7 @@ export const MOROCCO_COMPANION_LAYERS = Object.freeze([
   Object.freeze({ id: 'local-firms', label: 'Active fires' }),
   Object.freeze({ id: 'traffic', label: 'Street traffic' }),
   Object.freeze({ id: 'radio', label: 'Radio' }),
+  Object.freeze({ id: 'oncf-trains', label: 'ONCF trains' }),
 ]);
 
 export const MOROCCO_CITY_IDS = Object.freeze([

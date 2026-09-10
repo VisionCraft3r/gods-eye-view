@@ -71,6 +71,7 @@ export const FR_EXACT = Object.freeze({
   'Earthquakes': 'Séismes',
   'Active fires': 'Feux actifs',
   'Street traffic': 'Trafic routier',
+  'ONCF trains': 'Trains ONCF',
   'Morocco pack': 'Pack Maroc',
   'Casablanca': 'Casablanca',
   'Rabat': 'Rabat',
