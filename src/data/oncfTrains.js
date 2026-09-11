@@ -56,6 +56,8 @@ export function createOncfTrainsLayer() {
     count: 0,
     weekend: false,
     error: null,
+    // Optional glTF stub must not sticky-error the timetable feed.
+    modelsUnavailable: false,
   };
 
   const clearVisuals = () => {
@@ -70,7 +72,7 @@ export function createOncfTrainsLayer() {
 
   const syncModels = async (viewer, poses, use3d) => {
     const wanted = new Set();
-    if (use3d) {
+    if (use3d && !state.modelsUnavailable) {
       const cam = viewer.camera.positionWC;
       const ranked = poses
         .map((pose) => ({
@@ -108,8 +110,8 @@ export function createOncfTrainsLayer() {
         viewer.scene.primitives.add(model);
         state.models.set(pose.id, model);
       } catch (error) {
-        state.error = 'ONCF train model failed';
-        console.warn('[Data:ONCF]', error);
+        state.modelsUnavailable = true;
+        console.warn('[Data:ONCF] train.glb unavailable; using sprites only', error?.message || error);
       } finally {
         state.pending.delete(pose.id);
       }
@@ -133,7 +135,8 @@ export function createOncfTrainsLayer() {
     state.weekend = weekend;
     state.count = trains.length;
     state.lastUpdate = Date.now();
-    const use3d = cameraHeight(viewer) < MODEL_ALT_CEIL_M;
+    state.error = null;
+    const use3d = !state.modelsUnavailable && cameraHeight(viewer) < MODEL_ALT_CEIL_M;
     const seen = new Set();
     let i = 0;
     for (const pose of trains) {
@@ -228,7 +231,9 @@ export function createOncfTrainsLayer() {
         count: state.count,
         lastUpdate: state.lastUpdate,
         error: state.error,
-        source: state.weekend ? 'ONCF weekend timetable' : 'ONCF weekday timetable',
+        source: state.weekend
+          ? (state.modelsUnavailable ? 'ONCF weekend timetable (sprites)' : 'ONCF weekend timetable')
+          : (state.modelsUnavailable ? 'ONCF weekday timetable (sprites)' : 'ONCF weekday timetable'),
       };
     },
   };

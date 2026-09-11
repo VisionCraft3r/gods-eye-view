@@ -7,6 +7,7 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ### Added
 
+- Morocco pack **Focus** parks non-Morocco world layers (and trims place kinds) while you work the kingdom; turning Focus off restores what was parked.
 - Cold-start performance pass: Mac app prefers a prebuilt `web-dist/` via `vite preview` (set `GEV_DEV=1` to force Vite dev), Cesium/layer manual chunks, and lazy-loaded heavy data layers.
 - Session restore for camera (`gev:session-camera:v1`) and Morocco pack enablement; first-run default camera is Casablanca with API-heavy layers left off until explicitly enabled.
 - Disk/memory caches for Morocco places/context/airport-aircraft, GBFS `station_information`, and USGS earthquakes via `/api/earthquakes`.
@@ -23,6 +24,7 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ### Fixed
 
+- ONCF no longer reports DEGRADED when the optional close-zoom `train.glb` stub fails to decode; sprites keep the timetable feed healthy.
 - The local Mac app now copies a real Electron.app instead of a shell-script
   launcher, so Dock and Finder can open it. It shows a window immediately,
   finds Node even with Dock's stripped PATH, waits on both `127.0.0.1` and

@@ -10,6 +10,8 @@ import {
   MOROCCO_CITY_IDS,
   MOROCCO_COMPANION_LAYERS,
   MOROCCO_DEFAULT_KINDS,
+  MOROCCO_FOCUS_KEEP_LAYER_IDS,
+  MOROCCO_FOCUS_KINDS,
   MOROCCO_KIND_IDS,
   MOROCCO_KIND_META,
   MOROCCO_OVERVIEW,
@@ -138,22 +140,74 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
   const catalog = document.getElementById('morocco-pack-catalog');
   const flyBtn = document.getElementById('morocco-pack-fly');
   const enableBtn = document.getElementById('morocco-pack-enable');
+  const focusBtn = document.getElementById('morocco-pack-focus');
+  const focusHint = document.getElementById('morocco-pack-focus-hint');
   if (!root || !flag || !sheet || !viewer) return () => {};
 
   const stored = readStore() || {};
   const state = {
     open: false,
     enabled: stored.enabled === true,
+    // Default ON: Morocco sessions stay snappy until the operator opts out.
+    focus: stored.focus !== false,
     kinds: normalizeMoroccoKinds(stored.kinds),
+    fullKinds: normalizeMoroccoKinds(stored.fullKinds || stored.kinds),
     companions: { ...DEFAULT_COMPANIONS, ...(stored.companions || {}) },
+    parkedLayers: Array.isArray(stored.parkedLayers) ? stored.parkedLayers.map(String) : [],
   };
 
   const persist = () => {
     writeStore({
       enabled: state.enabled,
+      focus: state.focus,
       kinds: state.kinds,
+      fullKinds: state.fullKinds,
       companions: state.companions,
+      parkedLayers: state.parkedLayers,
     });
+  };
+
+  const keepIds = () => {
+    const keep = new Set(MOROCCO_FOCUS_KEEP_LAYER_IDS);
+    for (const [layerId, on] of Object.entries(state.companions)) {
+      if (on) keep.add(layerId);
+    }
+    return keep;
+  };
+
+  const applyFocusKinds = () => {
+    if (state.focus) {
+      state.fullKinds = normalizeMoroccoKinds(state.kinds.length ? state.kinds : state.fullKinds);
+      state.kinds = normalizeMoroccoKinds([...MOROCCO_FOCUS_KINDS]);
+    } else if (state.fullKinds?.length) {
+      state.kinds = normalizeMoroccoKinds(state.fullKinds);
+    }
+  };
+
+  const parkNonMoroccoLayers = async () => {
+    if (!dataManager?.getEnabledLayerIds || !dataManager?.setEnabled) return;
+    const enabled = [...dataManager.getEnabledLayerIds()];
+    const keep = keepIds();
+    const toPark = enabled.filter((id) => !keep.has(id));
+    // Remember previously-on layers so Focus OFF can restore them.
+    const parked = new Set(state.parkedLayers);
+    for (const id of toPark) parked.add(id);
+    state.parkedLayers = [...parked];
+    persist();
+    for (const id of toPark) {
+      await dataManager.setEnabled(id, false, { origin: 'morocco-focus' });
+    }
+  };
+
+  const restoreParkedLayers = async () => {
+    if (!dataManager?.setEnabled) return;
+    const restore = [...state.parkedLayers];
+    state.parkedLayers = [];
+    persist();
+    for (const id of restore) {
+      if (id === MOROCCO_LAYER) continue;
+      await dataManager.setEnabled(id, true, { origin: 'morocco-focus-restore' });
+    }
   };
 
   const syncCityPills = () => {
@@ -171,6 +225,16 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
       enableBtn.textContent = state.enabled ? 'PACK ON' : 'PACK OFF';
       enableBtn.setAttribute('aria-pressed', String(state.enabled));
     }
+    if (focusBtn) {
+      focusBtn.textContent = state.focus ? 'FOCUS ON' : 'FOCUS OFF';
+      focusBtn.setAttribute('aria-pressed', String(state.focus));
+      focusBtn.disabled = !state.enabled;
+    }
+    if (focusHint) {
+      focusHint.textContent = state.focus
+        ? 'Focus parks world layers (satellites, CCTV, rockets, …). Live chips below stay available.'
+        : 'Focus off — previously parked world layers are restored when you leave Focus.';
+    }
     syncCityPills();
   };
 
@@ -184,13 +248,15 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
   };
 
   const applyEnabled = async ({ flyIfNeeded = false } = {}) => {
+    if (state.enabled && state.focus) applyFocusKinds();
     persist();
     paintFlag();
     paintChips();
     syncCityPills();
     if (!dataManager) return;
-    await dataManager.setEnabled(MOROCCO_LAYER, state.enabled, { origin: 'user' });
     if (state.enabled) {
+      if (state.focus) await parkNonMoroccoLayers();
+      await dataManager.setEnabled(MOROCCO_LAYER, true, { origin: 'user' });
       dataManager.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
       for (const [layerId, on] of Object.entries(state.companions)) {
         await dataManager.setEnabled(layerId, !!on, { origin: 'user' });
@@ -199,6 +265,10 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
         styleManager?._stampNavigation?.();
         flyToMoroccoOverview(viewer);
       }
+    } else {
+      await dataManager.setEnabled(MOROCCO_LAYER, false, { origin: 'user' });
+      // Turning the pack off restores anything Focus parked.
+      if (state.parkedLayers.length) await restoreParkedLayers();
     }
   };
 
@@ -217,6 +287,7 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
         state.kinds = normalizeMoroccoKinds(
           [...next].length ? [...next] : [...MOROCCO_DEFAULT_KINDS],
         );
+        if (!state.focus) state.fullKinds = state.kinds;
         persist();
         paintChips();
         dataManager?.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
@@ -370,6 +441,30 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
     state.enabled = !state.enabled;
     void applyEnabled({ flyIfNeeded: state.enabled });
   };
+  const onFocus = () => {
+    if (!state.enabled) return;
+    const next = !state.focus;
+    state.focus = next;
+    void (async () => {
+      if (next) {
+        applyFocusKinds();
+        persist();
+        paintFlag();
+        paintChips();
+        dataManager?.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
+        await parkNonMoroccoLayers();
+      } else {
+        if (state.fullKinds?.length) {
+          state.kinds = normalizeMoroccoKinds(state.fullKinds);
+        }
+        persist();
+        paintFlag();
+        paintChips();
+        dataManager?.setLayerParams?.(MOROCCO_LAYER, { kinds: state.kinds }, { origin: 'user' });
+        await restoreParkedLayers();
+      }
+    })();
+  };
   const onFly = () => {
     state.enabled = true;
     styleManager?._stampNavigation?.();
@@ -379,11 +474,13 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
 
   flag.addEventListener('click', onFlag);
   enableBtn?.addEventListener('click', onEnable);
+  focusBtn?.addEventListener('click', onFocus);
   flyBtn?.addEventListener('click', onFly);
 
   return () => {
     flag.removeEventListener('click', onFlag);
     enableBtn?.removeEventListener('click', onEnable);
+    focusBtn?.removeEventListener('click', onFocus);
     flyBtn?.removeEventListener('click', onFly);
   };
 }

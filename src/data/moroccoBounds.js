@@ -75,6 +75,21 @@ export const MOROCCO_COMPANION_LAYERS = Object.freeze([
   Object.freeze({ id: 'oncf-trains', label: 'ONCF trains' }),
 ]);
 
+/** Place kinds kept when Morocco Focus is on (lighter Overpass / paint load). */
+export const MOROCCO_FOCUS_KINDS = Object.freeze([
+  'airports',
+  'ports',
+  'stations',
+  'tourism',
+  'unesco',
+]);
+
+/** Layers always allowed while Morocco Focus parks the rest of the globe. */
+export const MOROCCO_FOCUS_KEEP_LAYER_IDS = Object.freeze([
+  'morocco',
+  ...MOROCCO_COMPANION_LAYERS.map((layer) => layer.id),
+]);
+
 export const MOROCCO_CITY_IDS = Object.freeze([
   'casablanca',
   'rabat',
