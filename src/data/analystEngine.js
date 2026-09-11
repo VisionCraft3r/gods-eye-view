@@ -31,6 +31,7 @@ export const ANALYST_LAYERS = {
   flights: { numeric: ['altitudeM', 'speedMps', 'verticalRateMps'], text: ['callsign', 'icao24', 'originCountry', 'operator', 'routeOrigin', 'routeDestination', 'aircraftClass'], flags: ['military', 'onGround'] },
   military: { numeric: ['altitudeM', 'speedMps', 'verticalRateMps'], text: ['callsign', 'icao24', 'originCountry', 'operator', 'aircraftClass'], flags: ['military', 'onGround'] },
   'ais-live-vessels': { numeric: ['speedKts', 'courseDeg'], text: ['name', 'mmsi', 'shipType', 'destination', 'navStatus'], flags: [] },
+  'oncf-trains': { numeric: ['kmh', 'headingDeg'], text: ['number', 'kindLabel', 'from', 'to'], flags: ['onRails'] },
   'local-firms': { numeric: ['frp'], text: ['confidence', 'satellite'], flags: [] },
   earthquakes: { numeric: ['magnitude', 'depthKm'], text: ['place'], flags: [] },
 };

@@ -112,7 +112,7 @@ export const DATA_CREDITS = [
     html:
       'Morocco trains: interpolated from the public ONCF Voyages timetable snapshot ' +
       '(<a href="https://www.oncf-voyages.ma/recherche-horaires" target="_blank" rel="noopener">oncf-voyages.ma</a>) ' +
-      'weekday/weekend templates; not live GPS',
+      'weekday/weekend templates along © OpenStreetMap rail paths (ODbL); not live GPS',
   },
   {
     key: 'morocco-ourairports',

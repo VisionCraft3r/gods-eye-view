@@ -1651,10 +1651,8 @@ function celestrakProxy() {
     return { at: Date.now(), body };
   }
 
-  return {
-    name: 'celestrak-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/celestrak', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/celestrak', async (req, res) => {
         const group = String(req.url || '').replace(/^\//, '').split('?')[0];
         if (!/^[a-z0-9-]+$/i.test(group)) {
           res.writeHead(400, { 'Content-Type': 'text/plain' });
@@ -1706,6 +1704,15 @@ function celestrakProxy() {
           send(500, `celestrak proxy error: ${err?.message || err}`, 'ERROR');
         }
       });
+  }
+
+  return {
+    name: 'celestrak-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -1955,10 +1962,8 @@ function tomtomProxy() {
     return buf;
   }
 
-  return {
-    name: 'tomtom-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/tomtom', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/tomtom', async (req, res) => {
         // Sanitized responses only (proxy/security baseline): no upstream
         // error details, and never echo the key or the upstream URL.
         const sendJson = (status, obj, extraHeaders = {}) => {
@@ -2060,6 +2065,15 @@ function tomtomProxy() {
           sendJson(500, { error: 'proxy' });
         }
       });
+  }
+
+  return {
+    name: 'tomtom-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -2212,10 +2226,8 @@ function firmsProxy() {
     return statusInflight;
   }
 
-  return {
-    name: 'firms-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/firms', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/firms', async (req, res) => {
         const sendJson = (status, obj) => {
           if (res.headersSent) return;
           res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -2283,6 +2295,15 @@ function firmsProxy() {
           sendJson(500, { error: 'firms proxy error' });
         }
       });
+  }
+
+  return {
+    name: 'firms-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -2393,10 +2414,8 @@ function terrainHeightsProxy() {
     return inflight.get(key);
   }
 
-  return {
-    name: 'terrain-heights-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/terrain/heights', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/terrain/heights', async (req, res) => {
         const send = (status, bodyObj) => {
           if (res.headersSent) return;
           res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -2434,6 +2453,15 @@ function terrainHeightsProxy() {
           send(500, { error: `terrain heights proxy error: ${err?.message || err}` });
         }
       });
+  }
+
+  return {
+    name: 'terrain-heights-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -2527,10 +2555,8 @@ function adsbdbProxy() {
     return inflight.get(ik);
   }
 
-  return {
-    name: 'adsbdb-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/adsbdb', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/adsbdb', async (req, res) => {
         await loadOnce();
         const send = (status, obj) => {
           res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -2555,6 +2581,15 @@ function adsbdbProxy() {
           return send(500, { error: String(err?.message || err) });
         }
       });
+  }
+
+  return {
+    name: 'adsbdb-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -2731,10 +2766,8 @@ export async function fetchOverpassPayload(body, maxResponseBytes = OVERPASS_MAX
  * @returns {import('vite').Plugin}
  */
 function overpassProxy() {
-  return {
-    name: 'overpass-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/overpass', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/overpass', async (req, res) => {
         // Hoisted out of the try so the catch's serve-stale lookup can see it
         // (a body-read failure would otherwise hit an out-of-scope reference).
         let cacheKey = null;
@@ -2864,7 +2897,7 @@ function overpassProxy() {
 
       // Real OSM routing via the public FOSSGIS OSRM servers (foot/car/bike).
       // GET /api/route?profile=foot|car|bike&coords=lon,lat;lon,lat[;...]
-      server.middlewares.use('/api/route', async (req, res) => {
+      middlewares.use('/api/route', async (req, res) => {
         const fail = (msg) => {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: false, error: msg }));
@@ -2953,6 +2986,15 @@ function overpassProxy() {
           fail('route proxy error');
         }
       });
+  }
+
+  return {
+    name: 'overpass-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -3069,10 +3111,8 @@ function openSkySourceIsStale(sourceEpochMs, now = Date.now()) {
  * @returns {import('vite').Plugin}
  */
 function openSkyProxy() {
-  return {
-    name: 'opensky-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/opensky', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/opensky', async (req, res) => {
         try {
           const requestedMode = normalizeOpenSkyAuthMode(process.env.OPENSKY_AUTH_MODE);
           const now = Date.now();
@@ -3348,6 +3388,15 @@ function openSkyProxy() {
           res.end(JSON.stringify({ error: 'OpenSky proxy error' }));
         }
       });
+  }
+
+  return {
+    name: 'opensky-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -4796,10 +4845,8 @@ function cctvProxy() {
     }
   };
 
-  return {
-    name: 'cctv-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/cctv', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/cctv', async (req, res) => {
         try {
           const sources = await getCctvSources();
           const sourceById = new Map(sources.map((source) => [source.id, source]));
@@ -5001,6 +5048,15 @@ function cctvProxy() {
           res.end(JSON.stringify({ error: 'CCTV proxy error' }));
         }
       });
+  }
+
+  return {
+    name: 'cctv-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -5020,10 +5076,8 @@ function adsbLolProxy() {
   let _cacheAt = 0;
   /** Response cache TTL (ms). */
   const CACHE_MS = 12000;
-  return {
-    name: 'adsblol-proxy',
-    configureServer(server) {
-      server.middlewares.use('/api/adsblol/mil', async (req, res) => {
+  function install(middlewares) {
+    middlewares.use('/api/adsblol/mil', async (req, res) => {
         try {
           const now = Date.now();
           if (_cache && now - _cacheAt < CACHE_MS) {
@@ -5052,6 +5106,15 @@ function adsbLolProxy() {
           res.end(JSON.stringify({ error: 'ADS-B proxy error' }));
         }
       });
+  }
+
+  return {
+    name: 'adsblol-proxy',
+    configureServer(server) {
+      install(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      install(server.middlewares);
     },
   };
 }
@@ -5481,6 +5544,7 @@ export function openAiRealtimeProxy() {
             'HUD requests ("hud on/off", "switch to operator/minimal/tactical layout") use set_hud. Detection requests ("detection on", "dense mode", "balanced mode", "sparse mode", "set density to 25", "use weighted allocation") use set_detection. Density snaps to 0/25/50/75/100 and derives Sparse/Balanced/Dense; panoptic is a legacy alias for Dense.',
             'Bloom/sharpen requests use set_post_processing. Scene requests ("play orbital watch", "stop the scene", "what scenes are there") use control_scene. CCTV camera requests ("next camera", "nearest camera", "select the Congress camera", "show coverage") use control_cctv — the CCTV layer must be enabled first.',
             'Radio playback requests use control_radio. "Turn on/start the radio" means action=play; action=enable only reveals Radio markers and must be reserved for explicit "show/enable the Radio layer/markers" requests. After a prepared playback result, briefly confirm any other completed actions and say "Turning on the radio"—never claim it is already playing. The client keeps Radio muted until playback is verified, then closes voice before restoring Radio volume. Examples: "play news near Austin" → select category=news locationId=austin; "play US news" → select category=news country=US; "Radio volume 30" → volume; pause/resume/stop/next/previous use the matching action. Radio selection never moves the camera.',
+            'Show/turn on trains / ONCF / Al Boraq enables the oncf-trains layer only (not the whole Morocco pack). Trains exist only in Morocco — if the camera is not over Morocco, also fly_to_location Casablanca (or the named Moroccan city). ONCF positions are timetable interpolation in Africa/Casablanca along OSM rail paths, not live GPS; say that once when it matters. Analytical asks about trains use analyst_query; follow/track a numbered train uses track_entity.',
             '"Track/follow <something specific>" (a callsign, ship name, satellite name) uses track_entity. "Take me to the biggest fire" uses track_entity with query "biggest fire" (the fires layer must be enabled). Bare "orbit" means camera orbit of the current landmark. "Stop following/tracking" uses stop_tracking.',
             '"Show me which planes are overhead"/"frame the ships"/"show me the satellites above" use frame_overhead with the matching target.',
             "After frame_overhead, speak ONLY from the tool result's count field — e.g. 'Framed fourteen aircraft, labels on'; never reassess or second-guess the count aloud.",
@@ -5984,7 +6048,7 @@ const GEV_REALTIME_TOOLS = [
         layerId: {
           type: 'string',
           description:
-            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; fires/wildfires/active fires → local-firms (NASA FIRMS); ships/vessels/boats → ais-live-vessels; undersea/submarine cables → telegeography-submarine-cables; datacenters → local-datacenters; dams → local-dams; bikes/bike share → bikeshare; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio.',
+            'Common-name mapping for the non-obvious ids: space mission(s) → rocket-launches; fires/wildfires/active fires → local-firms (NASA FIRMS); ships/vessels/boats → ais-live-vessels; undersea/submarine cables → telegeography-submarine-cables; datacenters → local-datacenters; dams → local-dams; bikes/bike share → bikeshare; street traffic/congestion → traffic; traffic cameras → cctv; internet radio/stations → radio; trains/ONCF/Al Boraq → oncf-trains.',
           enum: [
             'flights',
             'military',
@@ -6000,6 +6064,7 @@ const GEV_REALTIME_TOOLS = [
             'local-dams',
             'telegeography-submarine-cables',
             'local-firms',
+            'oncf-trains',
           ],
         },
         enabled: { type: 'boolean' },
@@ -6031,6 +6096,7 @@ const GEV_REALTIME_TOOLS = [
             'local-dams',
             'telegeography-submarine-cables',
             'local-firms',
+            'oncf-trains',
           ],
           description: 'Optional layer row to scroll into view and highlight.',
         },
@@ -6133,6 +6199,7 @@ const GEV_REALTIME_TOOLS = [
             'local-dams',
             'telegeography-submarine-cables',
             'local-firms',
+            'oncf-trains',
           ],
           description: 'Optional layer filter for visible entity context.',
         },
@@ -6297,7 +6364,7 @@ const GEV_REALTIME_TOOLS = [
       additionalProperties: false,
       properties: {
         query: { type: 'string', description: 'Callsign, ship name, satellite name, ICAO hex, MMSI, or NORAD id.' },
-        layerId: { type: 'string', description: 'Optional layer hint: flights | military | ais-live-vessels | satellites.' },
+        layerId: { type: 'string', description: 'Optional layer hint: flights | military | ais-live-vessels | oncf-trains | satellites.' },
       },
       required: ['query'],
     },
@@ -6320,7 +6387,7 @@ const GEV_REALTIME_TOOLS = [
       type: 'object',
       additionalProperties: false,
       properties: {
-        target: { type: 'string', enum: ['flights', 'military', 'satellites', 'vessels'] },
+        target: { type: 'string', enum: ['flights', 'military', 'satellites', 'vessels', 'trains', 'oncf'] },
         radiusKm: { type: 'number', description: 'Search radius around the view target. Defaults: 150 aircraft, 120 ships, 3000 satellites.' },
       },
       required: ['target'],
@@ -6448,8 +6515,9 @@ const GEV_REALTIME_TOOLS = [
       properties: {
         layers: {
           type: 'array',
-          items: { type: 'string', enum: ['flights', 'military', 'ais-live-vessels', 'local-firms', 'earthquakes'] },
-          description: 'Layers to query. fires/wildfires → local-firms; ships/vessels → ais-live-vessels.',
+          items: { type: 'string', enum: ['flights', 'military', 'ais-live-vessels', 'local-firms', 'earthquakes',
+            'oncf-trains'] },
+          description: 'Layers to query. fires/wildfires → local-firms; ships/vessels → ais-live-vessels; trains/ONCF/Al Boraq → oncf-trains.',
         },
         scope: {
           type: 'object',

@@ -166,6 +166,11 @@ const LAYER_ALIASES = new Map([
   ['ships', 'ais-live-vessels'],
   ['vessels', 'ais-live-vessels'],
   ['live vessels', 'ais-live-vessels'],
+  ['trains', 'oncf-trains'],
+  ['oncf', 'oncf-trains'],
+  ['oncf trains', 'oncf-trains'],
+  ['boraq', 'oncf-trains'],
+  ['al boraq', 'oncf-trains'],
   ['datacenters', 'local-datacenters'],
   ['data centers', 'local-datacenters'],
   ['data centres', 'local-datacenters'],
@@ -247,6 +252,7 @@ const TRACKABLE_FAMILIES = [
   { layerId: 'flights', kind: 'aircraft' },
   { layerId: 'military', kind: 'aircraft' },
   { layerId: 'ais-live-vessels', kind: 'vessel' },
+  { layerId: 'oncf-trains', kind: 'train' },
   { layerId: 'satellites', kind: 'satellite' },
 ];
 
@@ -259,6 +265,9 @@ const FRAME_TARGETS = new Map([
   ['satellites', 'satellites'],
   ['vessels', 'ais-live-vessels'],
   ['ships', 'ais-live-vessels'],
+  ['trains', 'oncf-trains'],
+  ['oncf', 'oncf-trains'],
+  ['oncf trains', 'oncf-trains'],
 ]);
 
 const reverseGeocodeCache = new Map();
@@ -1720,11 +1729,11 @@ async function trackEntity(viewer, dataManager, styleManager, args = {}) {
     const found = module.findByQuery(query);
     if (!found) continue;
 
-    if (family.kind === 'vessel'
+    if ((family.kind === 'vessel' || family.kind === 'train')
       && (!Number.isFinite(found.latitude) || !Number.isFinite(found.longitude))) {
       return {
         ok: false, action: 'track_entity', layerId: family.layerId, kind: family.kind,
-        error: 'The matched vessel has no usable position',
+        error: `The matched ${family.kind} has no usable position`,
       };
     }
 
@@ -1734,6 +1743,11 @@ async function trackEntity(viewer, dataManager, styleManager, args = {}) {
         trackedOk = !!module.selectById?.(found.mmsi);
         flyToLandmark(viewer, found.latitude, found.longitude, {
           range: 6000, pitch: -45, heading: 0, buildingHeight: 0, duration: 2.0,
+        });
+      } else if (family.kind === 'train') {
+        trackedOk = !!module.selectById?.(found.id || found.number);
+        flyToLandmark(viewer, found.latitude, found.longitude, {
+          range: 3500, pitch: -50, heading: 0, buildingHeight: 0, duration: 1.8,
         });
       } else if (family.kind === 'satellite') {
         trackedOk = !!module.trackById?.(found.noradId, { origin: 'voice' });
@@ -1771,7 +1785,7 @@ function stopAllTracking(viewer, dataManager) {
     const module = dataManager.layers.get(family.layerId)?.module;
     if (!module) continue;
     try {
-      if (family.kind === 'vessel') {
+      if (family.kind === 'vessel' || family.kind === 'train') {
         if (module.getSelectedInfo?.()) {
           if (typeof module.clearSelection !== 'function' || module.clearSelection() === false) {
             failed.add(family.layerId);
@@ -1835,7 +1849,9 @@ async function frameOverhead(viewer, dataManager, styleManager, args = {}) {
   }
   const module = dataManager.layers.get(layerId)?.module;
   const isSatellites = layerId === 'satellites';
-  const defaultRadiusKm = isSatellites ? 3000 : (layerId === 'ais-live-vessels' ? 120 : 150);
+  const defaultRadiusKm = isSatellites
+    ? 3000
+    : (layerId === 'ais-live-vessels' ? 120 : (layerId === 'oncf-trains' ? 200 : 150));
   const radiusKm = clampNumber(args.radiusKm, 10, 20000, defaultRadiusKm);
   const center = getViewTargetCartesian(viewer) || viewer.camera.positionWC;
 
@@ -1911,7 +1927,9 @@ function collectTrackedEntities(dataManager) {
     const module = dataManager.layers.get(family.layerId)?.module;
     if (!module) continue;
     try {
-      const info = family.kind === 'vessel' ? module.getSelectedInfo?.() : module.getTrackedInfo?.();
+      const info = (family.kind === 'vessel' || family.kind === 'train')
+        ? module.getSelectedInfo?.()
+        : module.getTrackedInfo?.();
       if (info) tracked.push({ kind: family.kind, layerId: family.layerId, ...info });
     } catch {
       // layer not ready

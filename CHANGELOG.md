@@ -7,6 +7,8 @@ of current runtime behavior, see [`docs/CURRENT-STATE.md`](docs/CURRENT-STATE.md
 
 ### Added
 
+- ONCF trains now ride bundled OSM rail paths (Africa/Casablanca timetable), with voice/analyst access to `oncf-trains` and Mac `vite preview` proxies restored for TomTom/OpenSky/Overpass/FIRMS/CCTV/Celestrak/terrain/ADS-B helpers.
+
 - Morocco pack **Focus** parks non-Morocco world layers (and trims place kinds) while you work the kingdom; turning Focus off restores what was parked.
 - Cold-start performance pass: Mac app prefers a prebuilt `web-dist/` via `vite preview` (set `GEV_DEV=1` to force Vite dev), Cesium/layer manual chunks, and lazy-loaded heavy data layers.
 - Session restore for camera (`gev:session-camera:v1`) and Morocco pack enablement; first-run default camera is Casablanca with API-heavy layers left off until explicitly enabled.

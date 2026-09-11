@@ -51,6 +51,15 @@ test('new data proxies install the same routes in dev and preview servers', () =
     'military-installations-proxy',
     'regional-brief-proxy',
     'weather-effects-proxy',
+    'tomtom-proxy',
+    'firms-proxy',
+    'terrain-heights-proxy',
+    'adsbdb-proxy',
+    'overpass-proxy',
+    'opensky-proxy',
+    'cctv-proxy',
+    'adsblol-proxy',
+    'celestrak-proxy',
   ]) {
     assert.equal(typeof byName.get(name)?.configureServer, 'function', `${name} dev hook`);
     assert.equal(typeof byName.get(name)?.configurePreviewServer, 'function', `${name} preview hook`);

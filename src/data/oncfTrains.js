@@ -1,19 +1,31 @@
 /**
  * Scheduled ONCF trains on the Morocco rail map.
- * Weekday vs weekend templates repeat indefinitely; pose is interpolated
- * between timetable stops. Sprites when zoomed out, tiny glTF up close.
+ * Weekday vs weekend templates repeat indefinitely; pose follows OSM rail
+ * paths when available. Sprites when zoomed out, tiny glTF up close.
  */
 
 import * as Cesium from 'cesium';
 import schedule from './oncfSchedule.json';
-import { activeOncfTrains, ONCF_KIND_LABEL } from './oncfMotion.js';
-import { governorRequestRender, holdContinuousRender, releaseContinuousRender } from '../renderGovernor.js';
+import {
+  activeOncfTrains,
+  casablancaClockLabel,
+  ONCF_KIND_LABEL,
+} from './oncfMotion.js';
+import {
+  governorRequestRender,
+  holdContinuousRender,
+  releaseContinuousRender,
+} from '../renderGovernor.js';
 import {
   registerSpriteCollection,
   restoreSpriteOrderOnEnable,
   unregisterSpriteCollection,
 } from './spriteOrder.js';
-import { removeEntityContextsForLayer } from './contextStore.js';
+import {
+  registerEntityContext,
+  removeEntityContextsForLayer,
+} from './contextStore.js';
+import { flyToLandmark } from '../locations.js';
 
 export const ONCF_TRAINS_LAYER_ID = 'oncf-trains';
 const MODEL_URL = '/models/train.glb';
@@ -42,6 +54,12 @@ function cameraHeight(viewer) {
   return viewer?.camera?.positionCartographic?.height ?? Number.POSITIVE_INFINITY;
 }
 
+function spokenLabel(pose) {
+  const kind = pose.kindLabel || ONCF_KIND_LABEL[pose.kind] || 'ONCF';
+  const num = pose.number ? ` ${pose.number}` : '';
+  return `${kind}${num} · ${pose.from} → ${pose.to}`;
+}
+
 export function createOncfTrainsLayer() {
   const state = {
     viewer: null,
@@ -49,14 +67,14 @@ export function createOncfTrainsLayer() {
     billboards: null,
     models: new Map(),
     pending: new Set(),
-    lastIds: new Set(),
+    posesById: new Map(),
+    selectedId: null,
     removePreRender: null,
     lastTickMs: 0,
     lastUpdate: null,
     count: 0,
     weekend: false,
     error: null,
-    // Optional glTF stub must not sticky-error the timetable feed.
     modelsUnavailable: false,
   };
 
@@ -67,6 +85,8 @@ export function createOncfTrainsLayer() {
     }
     state.models.clear();
     state.pending.clear();
+    state.posesById.clear();
+    state.selectedId = null;
     removeEntityContextsForLayer(ONCF_TRAINS_LAYER_ID);
   };
 
@@ -77,7 +97,10 @@ export function createOncfTrainsLayer() {
       const ranked = poses
         .map((pose) => ({
           pose,
-          d: Cesium.Cartesian3.distance(cam, Cesium.Cartesian3.fromDegrees(pose.longitude, pose.latitude)),
+          d: Cesium.Cartesian3.distance(
+            cam,
+            Cesium.Cartesian3.fromDegrees(pose.longitude, pose.latitude),
+          ),
         }))
         .sort((a, b) => a.d - b.d)
         .slice(0, MODEL_MAX);
@@ -129,6 +152,35 @@ export function createOncfTrainsLayer() {
     model.show = true;
   };
 
+  const publishContexts = (poses) => {
+    removeEntityContextsForLayer(ONCF_TRAINS_LAYER_ID);
+    for (const pose of poses) {
+      const carrier = {
+        id: pose.id,
+        position: Cesium.Cartesian3.fromDegrees(pose.longitude, pose.latitude, 8),
+      };
+      registerEntityContext(carrier, {
+        id: `${ONCF_TRAINS_LAYER_ID}:${pose.id}`,
+        layerId: ONCF_TRAINS_LAYER_ID,
+        layerName: 'ONCF trains',
+        source: 'ONCF Voyages timetable + OSM rail paths',
+        label: spokenLabel(pose),
+        latitude: pose.latitude,
+        longitude: pose.longitude,
+        properties: {
+          number: pose.number,
+          kind: pose.kind,
+          kindLabel: pose.kindLabel,
+          from: pose.from,
+          to: pose.to,
+          kmh: pose.kmh,
+          headingDeg: pose.headingDeg,
+          onRails: pose.onRails,
+        },
+      });
+    }
+  };
+
   const tick = (viewer) => {
     if (!state.enabled || !state.billboards) return;
     const { trains, weekend } = activeOncfTrains(schedule);
@@ -136,11 +188,10 @@ export function createOncfTrainsLayer() {
     state.count = trains.length;
     state.lastUpdate = Date.now();
     state.error = null;
+    state.posesById = new Map(trains.map((pose) => [String(pose.id), pose]));
     const use3d = !state.modelsUnavailable && cameraHeight(viewer) < MODEL_ALT_CEIL_M;
-    const seen = new Set();
     let i = 0;
     for (const pose of trains) {
-      seen.add(pose.id);
       const position = Cesium.Cartesian3.fromDegrees(pose.longitude, pose.latitude);
       let bb = state.billboards.get(i);
       if (!bb) {
@@ -164,6 +215,7 @@ export function createOncfTrainsLayer() {
     while (state.billboards.length > trains.length) {
       state.billboards.remove(state.billboards.get(state.billboards.length - 1));
     }
+    publishContexts(trains);
     void syncModels(viewer, trains, use3d);
     governorRequestRender('oncf-trains');
   };
@@ -172,7 +224,7 @@ export function createOncfTrainsLayer() {
     id: ONCF_TRAINS_LAYER_ID,
     name: 'ONCF trains',
     icon: '🚆',
-    source: 'ONCF Voyages schedule snapshot',
+    source: 'ONCF Voyages schedule + OSM rail paths',
     showInTogglePanel: true,
     updateInterval: 15_000,
 
@@ -227,14 +279,147 @@ export function createOncfTrainsLayer() {
     },
 
     getStats() {
+      const clock = casablancaClockLabel();
+      const base = state.weekend ? 'ONCF weekend timetable' : 'ONCF weekday timetable';
+      const sprites = state.modelsUnavailable ? ' (sprites)' : '';
       return {
         count: state.count,
         lastUpdate: state.lastUpdate,
         error: state.error,
-        source: state.weekend
-          ? (state.modelsUnavailable ? 'ONCF weekend timetable (sprites)' : 'ONCF weekend timetable')
-          : (state.modelsUnavailable ? 'ONCF weekday timetable (sprites)' : 'ONCF weekday timetable'),
+        source: `${base} · OSM paths${sprites} · ${clock} Africa/Casablanca`,
       };
+    },
+
+    getNearby(centerCartesian, rangeM, maxCount = 25) {
+      if (!state.enabled || !centerCartesian) return [];
+      const range = Number.isFinite(rangeM) && rangeM > 0 ? rangeM : Infinity;
+      const cap = Number.isFinite(maxCount) && maxCount > 0 ? Math.floor(maxCount) : 25;
+      const entries = [];
+      for (const pose of state.posesById.values()) {
+        const position = Cesium.Cartesian3.fromDegrees(pose.longitude, pose.latitude, 8);
+        const distanceM = Cesium.Cartesian3.distance(centerCartesian, position);
+        if (!Number.isFinite(distanceM) || distanceM > range) continue;
+        entries.push({
+          id: pose.id,
+          name: spokenLabel(pose),
+          position,
+          distanceM,
+          latitude: pose.latitude,
+          longitude: pose.longitude,
+        });
+      }
+      entries.sort((a, b) => a.distanceM - b.distanceM);
+      return entries.slice(0, cap);
+    },
+
+    getAllPositions(maxCount = 800) {
+      if (!state.enabled) return [];
+      const cap = Number.isFinite(maxCount) && maxCount > 0 ? Math.floor(maxCount) : 800;
+      const out = [];
+      for (const pose of state.posesById.values()) {
+        if (out.length >= cap) break;
+        out.push({
+          id: pose.id,
+          label: spokenLabel(pose),
+          position: Cesium.Cartesian3.fromDegrees(pose.longitude, pose.latitude, 8),
+          latitude: pose.latitude,
+          longitude: pose.longitude,
+        });
+      }
+      return out;
+    },
+
+    findByQuery(query) {
+      if (!state.enabled) return null;
+      const q = String(query ?? '').trim();
+      if (!q) return null;
+      const lower = q.toLowerCase();
+      const poses = [...state.posesById.values()];
+      const exactNum = poses.find((pose) => String(pose.number || '').toLowerCase() === lower);
+      const match = exactNum || poses.find((pose) => {
+        const hay = `${pose.number || ''} ${pose.kindLabel || ''} ${pose.from || ''} ${pose.to || ''}`.toLowerCase();
+        return hay.includes(lower);
+      });
+      if (!match) return null;
+      return {
+        id: match.id,
+        number: match.number,
+        name: spokenLabel(match),
+        latitude: match.latitude,
+        longitude: match.longitude,
+        kindLabel: match.kindLabel,
+        from: match.from,
+        to: match.to,
+      };
+    },
+
+    getAnalystRecords(maxCount = 2000) {
+      if (!state.enabled) return [];
+      const limit = Number.isFinite(maxCount) ? Math.max(1, Math.floor(maxCount)) : 2000;
+      const out = [];
+      for (const pose of state.posesById.values()) {
+        if (out.length >= limit) break;
+        out.push({
+          id: pose.id,
+          number: pose.number || null,
+          kind: pose.kind,
+          kindLabel: pose.kindLabel || ONCF_KIND_LABEL[pose.kind] || null,
+          from: pose.from || null,
+          to: pose.to || null,
+          lat: pose.latitude,
+          lon: pose.longitude,
+          kmh: Number.isFinite(pose.kmh) ? pose.kmh : null,
+          headingDeg: Number.isFinite(pose.headingDeg) ? pose.headingDeg : null,
+          onRails: Boolean(pose.onRails),
+        });
+      }
+      return out;
+    },
+
+    selectById(id) {
+      const key = String(id ?? '').trim();
+      if (!key) return false;
+      const pose = state.posesById.get(key)
+        || [...state.posesById.values()].find((row) => String(row.number) === key);
+      if (!pose) return false;
+      state.selectedId = pose.id;
+      return true;
+    },
+
+    clearSelection() {
+      state.selectedId = null;
+      return true;
+    },
+
+    getSelectedInfo() {
+      if (!state.selectedId) return null;
+      const pose = state.posesById.get(String(state.selectedId));
+      if (!pose) return null;
+      return {
+        id: pose.id,
+        number: pose.number,
+        name: spokenLabel(pose),
+        latitude: pose.latitude,
+        longitude: pose.longitude,
+        kindLabel: pose.kindLabel,
+        from: pose.from,
+        to: pose.to,
+        kmh: pose.kmh,
+      };
+    },
+
+    /** Voice/map inspect: fly to a selected train (not Cesium trackedEntity). */
+    flyToSelected(viewer = state.viewer) {
+      const info = this.getSelectedInfo();
+      if (!info || !viewer) return false;
+      flyToLandmark(viewer, info.latitude, info.longitude, {
+        range: 3500,
+        pitch: -50,
+        heading: 0,
+        buildingHeight: 0,
+        duration: 1.8,
+      });
+      return true;
     },
   };
 
