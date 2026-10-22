@@ -39,19 +39,19 @@ export const MOROCCO_KIND_IDS = Object.freeze([
 ]);
 
 export const MOROCCO_KIND_META = Object.freeze({
-  airports: Object.freeze({ label: 'Airports', color: '#7ecbff' }),
-  ports: Object.freeze({ label: 'Ports', color: '#4ad4c8' }),
-  stations: Object.freeze({ label: 'Rail & tram', color: '#f0c14a' }),
-  hospitals: Object.freeze({ label: 'Hospitals', color: '#ff6b7a' }),
-  universities: Object.freeze({ label: 'Universities', color: '#c58cff' }),
-  mosques: Object.freeze({ label: 'Mosques', color: '#5dcaa5' }),
-  civic: Object.freeze({ label: 'Civic', color: '#9ca6b0' }),
-  tourism: Object.freeze({ label: 'Landmarks', color: '#ff9f43' }),
-  unesco: Object.freeze({ label: 'UNESCO', color: '#ffd36b' }),
-  hotels: Object.freeze({ label: 'Hotels', color: '#e8d5b5' }),
-  energy: Object.freeze({ label: 'Dams & power', color: '#5aa9ff' }),
-  beaches: Object.freeze({ label: 'Beaches', color: '#7ad7ff' }),
-  markets: Object.freeze({ label: 'Souks', color: '#e8a87c' }),
+  airports: Object.freeze({ label: 'Airports', color: '#7ecbff' }), // i18n-ignore: Morocco pack copy stays English
+  ports: Object.freeze({ label: 'Ports', color: '#4ad4c8' }), // i18n-ignore: Morocco pack copy stays English
+  stations: Object.freeze({ label: 'Rail & tram', color: '#f0c14a' }), // i18n-ignore: Morocco pack copy stays English
+  hospitals: Object.freeze({ label: 'Hospitals', color: '#ff6b7a' }), // i18n-ignore: Morocco pack copy stays English
+  universities: Object.freeze({ label: 'Universities', color: '#c58cff' }), // i18n-ignore: Morocco pack copy stays English
+  mosques: Object.freeze({ label: 'Mosques', color: '#5dcaa5' }), // i18n-ignore: Morocco pack copy stays English
+  civic: Object.freeze({ label: 'Civic', color: '#9ca6b0' }), // i18n-ignore: Morocco pack copy stays English
+  tourism: Object.freeze({ label: 'Landmarks', color: '#ff9f43' }), // i18n-ignore: Morocco pack copy stays English
+  unesco: Object.freeze({ label: 'UNESCO', color: '#ffd36b' }), // i18n-ignore: Morocco pack copy stays English
+  hotels: Object.freeze({ label: 'Hotels', color: '#e8d5b5' }), // i18n-ignore: Morocco pack copy stays English
+  energy: Object.freeze({ label: 'Dams & power', color: '#5aa9ff' }), // i18n-ignore: Morocco pack copy stays English
+  beaches: Object.freeze({ label: 'Beaches', color: '#7ad7ff' }), // i18n-ignore: Morocco pack copy stays English
+  markets: Object.freeze({ label: 'Souks', color: '#e8a87c' }), // i18n-ignore: Morocco pack copy stays English
 });
 
 export const MOROCCO_DEFAULT_KINDS = Object.freeze([
@@ -66,13 +66,13 @@ export const MOROCCO_DEFAULT_KINDS = Object.freeze([
 ]);
 
 export const MOROCCO_COMPANION_LAYERS = Object.freeze([
-  Object.freeze({ id: 'flights', label: 'Live flights' }),
-  Object.freeze({ id: 'ais-live-vessels', label: 'Live vessels' }),
-  Object.freeze({ id: 'earthquakes', label: 'Earthquakes' }),
-  Object.freeze({ id: 'local-firms', label: 'Active fires' }),
-  Object.freeze({ id: 'traffic', label: 'Street traffic' }),
-  Object.freeze({ id: 'radio', label: 'Radio' }),
-  Object.freeze({ id: 'oncf-trains', label: 'ONCF trains' }),
+  Object.freeze({ id: 'flights', label: 'Live flights' }), // i18n-ignore: Morocco pack copy stays English
+  Object.freeze({ id: 'ais-live-vessels', label: 'Live vessels' }), // i18n-ignore: Morocco pack copy stays English
+  Object.freeze({ id: 'earthquakes', label: 'Earthquakes' }), // i18n-ignore: Morocco pack copy stays English
+  Object.freeze({ id: 'local-firms', label: 'Active fires' }), // i18n-ignore: Morocco pack copy stays English
+  Object.freeze({ id: 'traffic', label: 'Street traffic' }), // i18n-ignore: Morocco pack copy stays English
+  Object.freeze({ id: 'radio', label: 'Radio' }), // i18n-ignore: Morocco pack copy stays English
+  Object.freeze({ id: 'oncf-trains', label: 'ONCF trains' }), // i18n-ignore: Morocco pack copy stays English
 ]);
 
 /** Place kinds kept when Morocco Focus is on (lighter Overpass / paint load). */

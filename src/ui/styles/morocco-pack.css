@@ -1,0 +1,179 @@
+#morocco-pack {
+  position: fixed;
+  left: 36px;
+  bottom: 72px;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+#morocco-pack > * {
+  pointer-events: auto;
+}
+#morocco-pack-flag {
+  width: 44px;
+  height: 32px;
+  padding: 3px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--btn-radius);
+  background: var(--glass-bg);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+#morocco-pack-flag svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+#morocco-pack-flag:hover,
+#morocco-pack-flag:focus-visible,
+#morocco-pack-flag.active,
+#morocco-pack-flag[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  transform: translateY(-1px);
+}
+#morocco-pack-flag:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+#morocco-pack-sheet {
+  position: relative;
+  width: min(340px, calc(100vw - 72px));
+  max-height: min(70vh, 640px);
+  overflow: auto;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--panel-radius);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+}
+#morocco-pack-sheet .panel-glow {
+  position: absolute;
+  inset: -24px;
+  background: radial-gradient(ellipse at center, var(--accent-dim) 0%, transparent 60%);
+  filter: blur(20px);
+  opacity: 0.28;
+  pointer-events: none;
+}
+#morocco-pack-sheet .panel-header {
+  position: relative;
+  margin-bottom: 10px;
+}
+#morocco-pack-enable {
+  flex: 0 0 auto;
+  min-width: 72px;
+}
+#morocco-pack-enable[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(0, 212, 255, 0.14);
+}
+.morocco-pack-fly {
+  position: relative;
+  display: block;
+  width: 100%;
+  flex: none;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.morocco-pack-label {
+  position: relative;
+  margin: 12px 0 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.morocco-pack-status {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+.morocco-pack-brief {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.morocco-pack-brief .morocco-pack-status:empty {
+  display: none;
+}
+.morocco-pack-chips {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.morocco-pack-chip {
+  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+}
+.morocco-pack-chip:hover,
+.morocco-pack-chip:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+.morocco-pack-chip[aria-pressed='true'] {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+}
+#morocco-pack-catalog,
+#morocco-pack-wiki {
+  position: relative;
+  margin: 0;
+  padding-left: 16px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+#morocco-pack-catalog a,
+#morocco-pack-wiki a {
+  color: var(--text-primary);
+}
+body.ui-clean-view #morocco-pack,
+body.recording-mode #morocco-pack {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+body:not(.ui-clean-view):not(.recording-mode) #morocco-pack {
+  bottom: calc(2vh + 8.7rem);
+}

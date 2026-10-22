@@ -41,22 +41,21 @@ test('altitude readout stays short', () => {
   assert.equal(formatZoomAltitude(Number.NaN), '—');
 });
 
-test('the top-right zoom rail is in the page, stylesheet, and StyleManager', () => {
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
-  const ui = readFileSync(new URL('./ui.js', import.meta.url), 'utf8');
+test('the top-right zoom rail is in the page, stylesheet, and controls', () => {
+  const html = readFileSync(new URL('./ui/templates/scene-chrome.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('./ui/styles/zoom-slider.css', import.meta.url), 'utf8');
+  const controls = readFileSync(new URL('./app/controls.js', import.meta.url), 'utf8');
   assert.match(html, /id="zoom-slider"/);
   assert.match(html, /id="zoom-slider-range"/);
   assert.match(html, /aria-orientation="vertical"/);
   assert.match(css, /#zoom-slider \{/);
   assert.match(css, /body\.ui-clean-view #zoom-slider/);
-  assert.match(ui, /installZoomSlider\(this\.viewer/);
-  assert.match(ui, /#zoom-slider/);
+  assert.match(controls, /installZoomSlider\(viewer/);
 });
 
 test('the zoom rail ships camera mode first, then height mode', () => {
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('./ui/templates/scene-chrome.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('./ui/styles/zoom-slider.css', import.meta.url), 'utf8');
   const cameraIdx = html.indexOf('data-zoom-mode="camera"');
   const heightIdx = html.indexOf('data-zoom-mode="height"');
   assert.ok(cameraIdx > 0 && heightIdx > cameraIdx);

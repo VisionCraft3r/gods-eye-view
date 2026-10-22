@@ -130,7 +130,7 @@ export function createMoroccoAirportAircraftLayer() {
       return true;
     } catch (error) {
       if (error?.name === 'AbortError') return false;
-      state.error = 'Morocco airport aircraft unavailable';
+      state.error = 'Morocco airport aircraft unavailable'; // i18n-ignore: Morocco pack copy stays English
       console.warn('[Data:Morocco] airport aircraft fetch failed', error);
       return false;
     } finally {

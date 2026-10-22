@@ -63,7 +63,11 @@ export const AIS_WATCHDOG_STATUSES = Object.freeze([
 ]);
 
 /** Failure classes. Only 'transport' is allowed to walk the fast ladder. */
-export const AIS_FAILURE_KINDS = Object.freeze(['transport', 'auth', 'rate-limit']);
+export const AIS_FAILURE_KINDS = Object.freeze([
+  'transport',
+  'auth',
+  'rate-limit',
+]);
 
 /** Statuses that must not flip back to a hopeful 'connecting' on a retry. */
 const QUIET_TERMINAL = new Set(['down', 'auth-failed']);
@@ -92,8 +96,8 @@ export function parseSilenceTimeoutEnv(raw, warn) {
   if (!text) return { kind: 'default' };
   if (!/^\d+(\.\d+)?$/.test(text)) {
     warn?.(
-      `[AISStream] Ignoring AISSTREAM_SILENCE_TIMEOUT_MS="${raw}" (not a non-negative number); `
-      + `using the ${AIS_WATCHDOG_DEFAULTS.staleMs}ms default.`,
+      `[AISStream] Ignoring AISSTREAM_SILENCE_TIMEOUT_MS="${raw}" (not a non-negative number); ` +
+        `using the ${AIS_WATCHDOG_DEFAULTS.staleMs}ms default.`,
     );
     return { kind: 'default' };
   }
@@ -132,11 +136,18 @@ export function createAisWatchdog(options = {}) {
     staleMs,
     positiveOr(options.recycleAfterMs, AIS_WATCHDOG_DEFAULTS.recycleAfterMs),
   );
-  const backoffMs = Array.isArray(options.backoffMs) && options.backoffMs.length
-    ? options.backoffMs.map((ms) => positiveOr(ms, 5_000))
-    : [...AIS_WATCHDOG_DEFAULTS.backoffMs];
-  const downRetryMs = positiveOr(options.downRetryMs, AIS_WATCHDOG_DEFAULTS.downRetryMs);
-  const authProbeMs = positiveOr(options.authProbeMs, AIS_WATCHDOG_DEFAULTS.authProbeMs);
+  const backoffMs =
+    Array.isArray(options.backoffMs) && options.backoffMs.length
+      ? options.backoffMs.map((ms) => positiveOr(ms, 5_000))
+      : [...AIS_WATCHDOG_DEFAULTS.backoffMs];
+  const downRetryMs = positiveOr(
+    options.downRetryMs,
+    AIS_WATCHDOG_DEFAULTS.downRetryMs,
+  );
+  const authProbeMs = positiveOr(
+    options.authProbeMs,
+    AIS_WATCHDOG_DEFAULTS.authProbeMs,
+  );
   const clock = options.clock || DEFAULT_CLOCK;
 
   let status = 'idle';
@@ -184,7 +195,8 @@ export function createAisWatchdog(options = {}) {
     // unproven, and hammering on an unproven key is the behaviour this whole
     // state exists to prevent. Only valid data or a key rotation leaves
     // auth-failed.
-    const effective = status === 'auth-failed' && kind !== 'auth' ? 'auth' : kind;
+    const effective =
+      status === 'auth-failed' && kind !== 'auth' ? 'auth' : kind;
     reconnectAttempt += 1;
 
     if (effective === 'auth') {
@@ -201,7 +213,8 @@ export function createAisWatchdog(options = {}) {
       reconnectAttempt = Math.max(reconnectAttempt, backoffMs.length);
       const wait = positiveOr(retryAfterMs, backoffMs[backoffMs.length - 1]);
       status = isExhausted() ? 'down' : 'reconnecting';
-      nextAttemptMono = monoNow + (isExhausted() ? Math.max(wait, downRetryMs) : wait);
+      nextAttemptMono =
+        monoNow + (isExhausted() ? Math.max(wait, downRetryMs) : wait);
       return;
     }
 
@@ -236,6 +249,7 @@ export function createAisWatchdog(options = {}) {
     if (!env.hasKey) {
       const actions = terminateOwned('key-absent');
       status = 'missing-key';
+      // i18n-ignore: server detail; layers/vessels/queries.js shows a translated reason
       error = 'AISSTREAM_API_KEY is not set';
       reconnectAttempt = 0;
       keyFingerprint = null;
@@ -244,6 +258,7 @@ export function createAisWatchdog(options = {}) {
     if (env.hasTransport === false) {
       const actions = terminateOwned('no-transport');
       status = 'unsupported';
+      // i18n-ignore: server detail; layers/vessels/queries.js shows a translated reason
       error = 'Node WebSocket transport is unavailable';
       return actions;
     }
@@ -251,7 +266,8 @@ export function createAisWatchdog(options = {}) {
     // A changed credential is the one event that can plausibly fix an auth
     // rejection, so it clears the terminal state immediately.
     const nextFingerprint = env.keyFingerprint ?? null;
-    const credentialChanged = keyFingerprint !== null && nextFingerprint !== keyFingerprint;
+    const credentialChanged =
+      keyFingerprint !== null && nextFingerprint !== keyFingerprint;
     keyFingerprint = nextFingerprint;
     if (credentialChanged) {
       // Any socket in flight belongs to the OLD key — it subscribed with that
@@ -315,6 +331,7 @@ export function createAisWatchdog(options = {}) {
       if (!silenceWatchArmed) return [];
       const silentFor = monoNow - silenceSinceMono;
       if (silentFor >= recycleAfterMs) {
+        // i18n-ignore: server detail; layers/vessels/queries.js shows a translated reason
         error = `AISStream delivered no data for ${Math.round(silentFor / 1000)}s`;
         const actions = terminateOwned('silent');
         scheduleRetry('transport');
@@ -353,9 +370,12 @@ export function createAisWatchdog(options = {}) {
    */
   function onOpen(eventGeneration) {
     if (!ownsGeneration(eventGeneration)) {
-      return [{ type: 'terminate', generation: eventGeneration, reason: 'orphan' }];
+      return [
+        { type: 'terminate', generation: eventGeneration, reason: 'orphan' },
+      ];
     }
-    if (!QUIET_TERMINAL.has(status) && status !== 'stale') status = 'connecting';
+    if (!QUIET_TERMINAL.has(status) && status !== 'stale')
+      status = 'connecting';
     return [];
   }
 
@@ -367,7 +387,9 @@ export function createAisWatchdog(options = {}) {
    */
   function onMessage(eventGeneration) {
     if (!ownsGeneration(eventGeneration)) {
-      return [{ type: 'terminate', generation: eventGeneration, reason: 'orphan' }];
+      return [
+        { type: 'terminate', generation: eventGeneration, reason: 'orphan' },
+      ];
     }
     const monoNow = clock.mono();
     silenceSinceMono = monoNow;
@@ -382,6 +404,7 @@ export function createAisWatchdog(options = {}) {
   function onClose(eventGeneration) {
     if (!ownsGeneration(eventGeneration)) return [];
     release();
+    // i18n-ignore: server detail; layers/vessels/queries.js shows a translated reason
     if (!error) error = 'AISStream websocket closed';
     scheduleRetry('transport');
     return [];
@@ -397,7 +420,9 @@ export function createAisWatchdog(options = {}) {
    */
   function onFailure(eventGeneration, detail = {}) {
     if (!ownsGeneration(eventGeneration)) return [];
-    const kind = AIS_FAILURE_KINDS.includes(detail.kind) ? detail.kind : 'transport';
+    const kind = AIS_FAILURE_KINDS.includes(detail.kind)
+      ? detail.kind
+      : 'transport';
     // A probe dying of some unrelated fault while the key is refused keeps the
     // credential message — surfacing "ECONNRESET" would send the operator
     // chasing the network instead of the key.
@@ -429,11 +454,12 @@ export function createAisWatchdog(options = {}) {
     return generation;
   }
 
-  /** Status metadata for /api/ais-live. */
+  /** Status metadata for /api/vessels. */
   function snapshot() {
     const monoNow = clock.mono();
     const wallNow = clock.wall();
-    const silentForMs = owned !== null ? Math.max(0, monoNow - silenceSinceMono) : null;
+    const silentForMs =
+      owned !== null ? Math.max(0, monoNow - silenceSinceMono) : null;
     const waitingMs = Math.max(0, nextAttemptMono - monoNow);
     return {
       status,
@@ -442,9 +468,12 @@ export function createAisWatchdog(options = {}) {
       silentForMs,
       reconnectAttempt,
       // Projected onto the wall clock purely for display.
-      nextAttemptAt: (status === 'reconnecting' || status === 'down' || status === 'auth-failed')
-        ? wallNow + waitingMs
-        : null,
+      nextAttemptAt:
+        status === 'reconnecting' ||
+        status === 'down' ||
+        status === 'auth-failed'
+          ? wallNow + waitingMs
+          : null,
       watchdog: silenceWatchArmed ? 'armed' : 'custom-subscription-off',
       staleAfterMs: staleMs,
     };
@@ -452,7 +481,13 @@ export function createAisWatchdog(options = {}) {
 
   /** Test/diagnostic view of internal ownership. */
   function debugState() {
-    return { status, owned, generation, reconnectAttempt, lastMessageAt: lastMessageWall };
+    return {
+      status,
+      owned,
+      generation,
+      reconnectAttempt,
+      lastMessageAt: lastMessageWall,
+    };
   }
 
   return {

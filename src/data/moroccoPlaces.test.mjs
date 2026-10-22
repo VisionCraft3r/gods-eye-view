@@ -101,22 +101,21 @@ test('Morocco briefing helpers keep Canary quakes out and format country facts',
 });
 
 test('the Morocco flag sheet ships next to credits and StyleManager installs it', () => {
-  const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../../style.css', import.meta.url), 'utf8');
-  const ui = readFileSync(new URL('../ui.js', import.meta.url), 'utf8');
-  const main = readFileSync(new URL('../main.js', import.meta.url), 'utf8');
-  const locations = readFileSync(new URL('../locations.js', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../ui/templates/scene-chrome.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../ui/styles/morocco-pack.css', import.meta.url), 'utf8');
+  const data = readFileSync(new URL('../standalone/data.js', import.meta.url), 'utf8');
+  const cities = readFileSync(new URL('../cityPois.js', import.meta.url), 'utf8');
   assert.match(html, /id="morocco-pack"/);
   assert.match(html, /id="morocco-pack-flag"/);
   assert.match(html, /id="morocco-pack-sheet"/);
   assert.match(html, /id="morocco-pack-wiki"/);
   assert.match(css, /#morocco-pack \{/);
-  assert.match(ui, /installMoroccoPack\(/);
-  assert.match(main, /moroccoPlacesLayer/);
-  assert.match(main, /oncfTrainsLayer/);
+  assert.match(data, /installMoroccoPack\(/);
+  assert.match(readFileSync(new URL('../app/constructCatalog.js', import.meta.url), 'utf8'), /oncfTrains\.js/);
+  assert.match(readFileSync(new URL('../app/constructCatalog.js', import.meta.url), 'utf8'), /moroccoPlaces\.js/);
   assert.match(readFileSync(new URL('./moroccoAirportAircraft.js', import.meta.url), 'utf8'), /airplane\.glb/);
-  assert.match(readFileSync(new URL('../../vite.config.js', import.meta.url), 'utf8'), /\/api\/morocco\/airport-aircraft/);
-  assert.match(locations, /ouarzazate:/);
-  assert.match(locations, /chefchaouen:/);
+  assert.match(readFileSync(new URL('../../server/providers/morocco.js', import.meta.url), 'utf8'), /\/api\/morocco\/airport-aircraft/);
+  assert.match(cities, /ouarzazate:/);
+  assert.match(cities, /chefchaouen:/);
   assert.match(readFileSync(new URL('./layerState.js', import.meta.url), 'utf8'), /id: 'morocco'/);
 });

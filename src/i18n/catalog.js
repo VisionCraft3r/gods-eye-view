@@ -400,6 +400,8 @@ export const FR_EXACT = Object.freeze({
   'Loading the keyless globe...': 'Chargement du globe sans clé…',
   'Initializing systems...': 'Initialisation des systèmes…',
   'Flying to Austin, TX...': 'Vol vers Austin, TX…',
+  'Flying to Casablanca...': 'Vol vers Casablanca…',
+  'Restoring your last view...': 'Restauration de votre dernière vue…',
   'Restoring shared view...': 'Restauration de la vue partagée…',
   'POWERED UP': 'SOUS TENSION',
   'browser-side': 'côté navigateur',

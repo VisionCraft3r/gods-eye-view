@@ -9,6 +9,7 @@ import {
   isKeySetupExternallyManaged,
   keySetupStatus,
   keySetupRequirement,
+  keySetupWithAlternatives,
   knownKeySetupEnvVars,
   parseWindowsUserSid,
   upsertDotenvValues,
@@ -28,10 +29,10 @@ test('the boot provenance snapshot survives in-process Vite config re-evaluation
   // panel save has already set its values live on process.env. A recomputed
   // snapshot would classify the panel's own keys as external (read-only) until
   // a full process relaunch, so the first evaluation's snapshot must win.
-  const source = readFileSync(new URL('../vite.config.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../server/standalone/key-setup.js', import.meta.url), 'utf8');
   assert.match(
     source,
-    /const PROVIDER_ENV_AT_BOOT = globalThis\.__GEV_PROVIDER_ENV_AT_BOOT \?\?= Object\.freeze\(/,
+    /const PROVIDER_ENV_AT_BOOT\s*=\s*\(?globalThis\.__GEV_PROVIDER_ENV_AT_BOOT\s*\?\?=\s*Object\.freeze\(/,
   );
 });
 
@@ -63,7 +64,7 @@ test('the status payload reports presence without any credential material', () =
     // Secret missing: the OpenSky pair must read as NOT set.
   };
   const status = keySetupStatus(env);
-  assert.equal(status.total, KEY_SETUP_KEYS.length);
+  assert.equal(status.total, KEY_SETUP_KEYS.filter((key) => !key.hidden).length);
   const google = status.keys.find((key) => key.id === 'google-maps');
   assert.equal(google.set, true);
   const opensky = status.keys.find((key) => key.id === 'opensky');
@@ -258,6 +259,23 @@ test('the admission gate refuses every non-local shape, one assertion per refusa
   assert.equal(admitKeySetupRequest({ ...local, env: { PINOKIO_SHARE_LOCAL: '1' } }).ok, false, 'LAN sharing disables the surface');
   // A LAN peer reaching a wide-bound server.
   assert.equal(admitKeySetupRequest({ ...local, remoteAddress: '192.168.1.20' }).ok, false, 'non-loopback socket refused');
+  // A container publishes its port on the host's loopback, yet the host's own
+  // browser still arrives from the container network's gateway. Only an exact
+  // address the operator listed admits it, and nothing else is relaxed.
+  const trusted = { GEV_KEY_SETUP_TRUSTED_PEERS: ' 10.0.0.9 , 172.29.73.1 ' };
+  const gateway = { ...local, remoteAddress: '172.29.73.1' };
+  assert.equal(admitKeySetupRequest(gateway).ok, false, 'container gateway refused without the opt-in');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: trusted }).ok, true, 'listed peer admitted');
+  assert.equal(admitKeySetupRequest({ ...gateway, remoteAddress: '::ffff:172.29.73.1', env: trusted }).ok, true, 'IPv4-mapped form of a listed peer admitted');
+  assert.equal(admitKeySetupRequest({ ...local, remoteAddress: '192.168.1.20', env: trusted }).ok, false, 'unlisted peer still refused');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: { GEV_KEY_SETUP_TRUSTED_PEERS: '*' } }).ok, false, 'wildcards are not addresses');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: { GEV_KEY_SETUP_TRUSTED_PEERS: '172.29.73.0/24' } }).ok, false, 'prefixes are not addresses');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: { GEV_KEY_SETUP_TRUSTED_PEERS: '' } }).ok, false, 'an empty list trusts nothing');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: { GEV_KEY_SETUP_TRUSTED_PEERS: ' , , ' } }).ok, false, 'blank entries trust nothing');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: { ...trusted, PINOKIO_SHARE_LOCAL: '1' } }).ok, false, 'sharing still disables the surface for a listed peer');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: trusted, hostHeader: 'abc.trycloudflare.com' }).ok, false, 'a listed peer still needs a local Host');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: trusted, origin: 'https://evil.example' }).ok, false, 'a listed peer still needs the exact Origin');
+  assert.equal(admitKeySetupRequest({ ...gateway, env: trusted, proxyHeaders: { 'x-forwarded-for': '203.0.113.5' } }).ok, false, 'a listed peer still refuses proxied requests');
   // Tunnel and DNS-rebinding traffic carries a foreign Host over a loopback socket.
   assert.equal(admitKeySetupRequest({ ...local, hostHeader: 'abc.trycloudflare.com' }).ok, false, 'foreign Host refused');
   assert.equal(admitKeySetupRequest({ ...local, hostHeader: 'workstation.local:4173' }).ok, false, 'non-localhost hostnames refused');
@@ -340,4 +358,38 @@ test('validation rejects dotenv metacharacters that would round-trip wrong', () 
   for (const good of ['sk-AbC0-9_x', 'eyJhbGc.eyJzdWI.QWxpY2U', 'a1b2c3d4e5f6', 'AB+cd/ef=']) {
     assert.equal(validateKeySetupUpdates({ OPENAI_API_KEY: good }).ok, true, `${good} accepted`);
   }
+});
+
+test('server Google key remains supported without appearing in setup or its missing count', () => {
+  const secret = 'server-key-fixture';
+  assert.deepEqual(validateKeySetupUpdates({ GOOGLE_MAPS_SERVER_API_KEY: secret }), {
+    ok: true, updates: { GOOGLE_MAPS_SERVER_API_KEY: secret },
+  });
+  assert.equal(validateKeySetupUpdates({ GOOGLE_MAPS_SERVER_API_KEY: null }).ok, true);
+  const status = keySetupStatus({ GOOGLE_MAPS_SERVER_API_KEY: secret });
+  assert.deepEqual(status, keySetupStatus({}));
+  assert.equal(status.keys.some((key) => key.id === 'google-maps-server'), false);
+  assert.equal(keySetupRequirement('google-maps-server'), '');
+  assert.equal(status.keys.find((key) => key.id === 'google-maps').title, 'GOOGLE MAPS');
+  const allVisibleConfigured = Object.fromEntries(status.keys.flatMap((key) =>
+    key.envVars.map((name) => [name, 'configured-fixture']),
+  ));
+  const complete = keySetupStatus(allVisibleConfigured);
+  assert.equal(complete.setCount, complete.total, 'an absent server key must not leave setup incomplete');
+  assert.deepEqual(complete, keySetupStatus({ ...allVisibleConfigured, GOOGLE_MAPS_SERVER_API_KEY: secret }));
+  assert.ok(!JSON.stringify(status).includes('GOOGLE_MAPS_SERVER_API_KEY'));
+  assert.ok(!JSON.stringify(status).includes(secret));
+});
+
+test('key guidance can offer another source that works with a key already set', () => {
+  const streetView = { label: 'STREET VIEW', requiresKeyId: 'google-maps' };
+  assert.equal(
+    keySetupWithAlternatives(keySetupRequirement('mapillary'), [streetView]),
+    'Needs MAPILLARY_CLIENT_TOKEN — add it in Provider Settings, or light STREET VIEW to use your Google Maps key',
+  );
+  assert.equal(
+    keySetupWithAlternatives('', [streetView]),
+    'Light STREET VIEW to use your Google Maps key',
+  );
+  assert.equal(keySetupWithAlternatives('Needs X', []), 'Needs X');
 });

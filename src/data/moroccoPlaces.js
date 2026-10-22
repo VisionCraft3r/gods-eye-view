@@ -186,7 +186,7 @@ export function createMoroccoPlacesLayer({ overlayHost = DEFAULT_OVERLAY_HOST } 
       return true;
     } catch (error) {
       if (error?.name === 'AbortError') return false;
-      state.error = 'Morocco places unavailable';
+      state.error = 'Morocco places unavailable'; // i18n-ignore: Morocco pack copy stays English
       console.warn('[Data:Morocco] places fetch failed', error);
       return false;
     } finally {

@@ -75,6 +75,27 @@ export function createLazyDataLayer(meta, importer) {
     getStats() {
       return inner?.getStats?.() || { count: 0, loading: !!loadPromise && !inner };
     },
+    getNearby(...args) {
+      return inner?.getNearby?.(...args) || [];
+    },
+    getAllPositions(...args) {
+      return inner?.getAllPositions?.(...args) || [];
+    },
+    findByQuery(...args) {
+      return inner?.findByQuery?.(...args) ?? null;
+    },
+    getAnalystRecords(...args) {
+      return inner?.getAnalystRecords?.(...args) || [];
+    },
+    selectById(...args) {
+      return inner?.selectById?.(...args) || false;
+    },
+    clearSelection(...args) {
+      return inner?.clearSelection?.(...args);
+    },
+    getSelectedInfo(...args) {
+      return inner?.getSelectedInfo?.(...args) || null;
+    },
     attachDataManager(manager) {
       this._pendingManager = manager;
       if (inner?.attachDataManager) inner.attachDataManager(manager);

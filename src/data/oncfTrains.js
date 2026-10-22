@@ -69,6 +69,8 @@ export function createOncfTrainsLayer() {
     pending: new Set(),
     posesById: new Map(),
     selectedId: null,
+    lastContextAt: 0,
+    lastContextKey: '',
     removePreRender: null,
     lastTickMs: 0,
     lastUpdate: null,
@@ -87,6 +89,8 @@ export function createOncfTrainsLayer() {
     state.pending.clear();
     state.posesById.clear();
     state.selectedId = null;
+    state.lastContextKey = '';
+    state.lastContextAt = 0;
     removeEntityContextsForLayer(ONCF_TRAINS_LAYER_ID);
   };
 
@@ -215,7 +219,13 @@ export function createOncfTrainsLayer() {
     while (state.billboards.length > trains.length) {
       state.billboards.remove(state.billboards.get(state.billboards.length - 1));
     }
-    publishContexts(trains);
+    const contextKey = trains.map((pose) => pose.id).join('|');
+    const nowMs = Date.now();
+    if (contextKey !== state.lastContextKey || nowMs - state.lastContextAt >= 1000) {
+      state.lastContextKey = contextKey;
+      state.lastContextAt = nowMs;
+      publishContexts(trains);
+    }
     void syncModels(viewer, trains, use3d);
     governorRequestRender('oncf-trains');
   };

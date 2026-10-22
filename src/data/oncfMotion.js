@@ -223,17 +223,61 @@ export function interpolateTrip(trip, stations, nowMin) {
   };
 }
 
+const railTripCache = new WeakMap();
+
+function railTripsFor(schedule, weekend) {
+  let entry = railTripCache.get(schedule);
+  if (!entry) {
+    entry = { weekday: null, weekend: null };
+    railTripCache.set(schedule, entry);
+  }
+  const key = weekend ? 'weekend' : 'weekday';
+  if (!entry[key]) {
+    const trips = (weekend ? schedule.weekend : schedule.weekday) || [];
+    entry[key] = trips.filter((trip) => tripHasRailPath(trip));
+  }
+  return entry[key];
+}
+
+function minuteOverlapsTrip(trip, minute) {
+  const stops = trip?.s || [];
+  if (stops.length < 2) return false;
+  const start = stops[0][0];
+  const end = stops[stops.length - 1][0];
+  let t = minute;
+  if (end >= 1440 && t < start) t += 1440;
+  return t >= Math.floor(start) && t <= Math.ceil(end);
+}
+
+const minuteTripCache = new WeakMap();
+
+function tripsInMinute(schedule, weekend, minute) {
+  let byDay = minuteTripCache.get(schedule);
+  if (!byDay) {
+    byDay = { weekday: new Map(), weekend: new Map() };
+    minuteTripCache.set(schedule, byDay);
+  }
+  const bucket = weekend ? byDay.weekend : byDay.weekday;
+  if (!bucket.has(minute)) {
+    bucket.set(
+      minute,
+      railTripsFor(schedule, weekend).filter((trip) => minuteOverlapsTrip(trip, minute)),
+    );
+  }
+  return bucket.get(minute);
+}
+
 export function activeOncfTrains(schedule, date = new Date()) {
   const clock = moroccoClockParts(date);
-  const trips = tripsForClock(schedule, clock) || [];
+  const weekend = isMoroccoWeekend(clock.weekday);
+  const minute = Math.floor(clock.minutes) % 1440;
+  const trips = tripsInMinute(schedule, weekend, minute);
   const out = [];
   for (const trip of trips) {
-    // Drop coach-only itineraries that never touch a routed rail leg.
-    if (!tripHasRailPath(trip)) continue;
     const pose = interpolateTrip(trip, schedule.stations, clock.minutes);
     if (pose) out.push(pose);
   }
-  return { clock, weekend: isMoroccoWeekend(clock.weekday), trains: out };
+  return { clock, weekend, trains: out };
 }
 
 export function casablancaClockLabel(date = new Date()) {

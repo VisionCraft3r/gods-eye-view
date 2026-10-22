@@ -5,7 +5,8 @@
  */
 
 import * as Cesium from 'cesium';
-import { CITY_POIS, flyToPresetLocation } from './locations.js';
+import { CITY_POIS } from './cityPois.js';
+import { flyToPresetLocation } from './locations.js';
 import {
   MOROCCO_CITY_IDS,
   MOROCCO_COMPANION_LAYERS,
@@ -222,16 +223,16 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
     sheet.hidden = !state.open;
     root.classList.toggle('open', state.open);
     if (enableBtn) {
-      enableBtn.textContent = state.enabled ? 'PACK ON' : 'PACK OFF';
+      enableBtn.textContent = state.enabled ? 'PACK ON' : 'PACK OFF'; // i18n-ignore: Morocco pack copy stays English
       enableBtn.setAttribute('aria-pressed', String(state.enabled));
     }
     if (focusBtn) {
-      focusBtn.textContent = state.focus ? 'FOCUS ON' : 'FOCUS OFF';
+      focusBtn.textContent = state.focus ? 'FOCUS ON' : 'FOCUS OFF'; // i18n-ignore: Morocco pack copy stays English
       focusBtn.setAttribute('aria-pressed', String(state.focus));
       focusBtn.disabled = !state.enabled;
     }
     if (focusHint) {
-      focusHint.textContent = state.focus
+      focusHint.textContent = state.focus // i18n-ignore: Morocco pack copy stays English
         ? 'Focus parks world layers (satellites, CCTV, rockets, …). Live chips below stay available.'
         : 'Focus off — previously parked world layers are restored when you leave Focus.';
     }
@@ -357,7 +358,7 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
         Number.isFinite(aqi.usAqi) ? `US AQI ${Math.round(aqi.usAqi)}` : '',
         Number.isFinite(aqi.pm25) ? `PM2.5 ${aqi.pm25.toFixed(1)} µg/m³` : '',
       ].filter(Boolean);
-      if (status) status.textContent = aqiBits.join(' · ') || 'Air quality — unavailable';
+      if (status) status.textContent = aqiBits.join(' · ') || 'Air quality — unavailable'; // i18n-ignore: Morocco pack copy stays English
       if (weatherLine) {
         weatherLine.textContent = formatMoroccoWeather({
           temperature_2m: payload.weather?.temperatureC,
@@ -382,19 +383,19 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
       if (sunLine) {
         const rise = clockFromIso(payload.weather?.sunrise);
         const set = clockFromIso(payload.weather?.sunset);
-        sunLine.textContent = rise && set
+        sunLine.textContent = rise && set // i18n-ignore: Morocco pack copy stays English
           ? `Sunrise ${rise} · sunset ${set} (Casablanca)`
           : '';
       }
       if (prayerLine) {
         const prayer = payload.prayer;
-        prayerLine.textContent = prayer
+        prayerLine.textContent = prayer // i18n-ignore: Morocco pack copy stays English
           ? `Prayer · Fajr ${prayer.fajr} · Dhuhr ${prayer.dhuhr} · Maghrib ${prayer.maghrib}`
           : '';
       }
       if (quakeLine) {
         const quake = Array.isArray(payload.quakes) ? payload.quakes[0] : null;
-        quakeLine.textContent = quake
+        quakeLine.textContent = quake // i18n-ignore: Morocco pack copy stays English
           ? `Quake M${Number(quake.mag).toFixed(1)} · ${quake.region || quake.flynn_region || 'Morocco'}`
           : '';
       }
@@ -417,7 +418,7 @@ export function installMoroccoPack({ viewer, dataManager, styleManager } = {}) {
           : 'Official catalog unavailable',
       );
     } catch {
-      if (status) status.textContent = 'Live Morocco feeds unavailable';
+      if (status) status.textContent = 'Live Morocco feeds unavailable'; // i18n-ignore: Morocco pack copy stays English
     }
   };
 

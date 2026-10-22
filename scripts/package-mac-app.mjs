@@ -54,7 +54,7 @@ if (!fs.existsSync(ICON_PNG)) {
 }
 
 console.log('Building web-dist for static Mac serve...');
-run('npm', ['run', 'build'], { cwd: ROOT });
+run('npm', ['run', 'build', '--', '--outDir', 'web-dist'], { cwd: ROOT });
 if (!fs.existsSync(path.join(ROOT, 'web-dist', 'index.html'))) {
   throw new Error('vite build did not produce web-dist/index.html');
 }

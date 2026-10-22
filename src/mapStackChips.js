@@ -1,8 +1,8 @@
 // MAP STACK source chips — the always-visible replacement for the `<select>`
 // that used to sit in the Map Stack panel. One button per stack, rendered from
-// `MapStackController.getStacks()`. The four owner-approved sources below are
+// `MapStackController.getStacks()`. The approved sources below are
 // the whole shipped set; keeping the allowlist explicit means a stack added to
-// `MAP_STACKS` for internal use cannot reach the tray until someone names it
+// `MAP_STACKS` for another purpose cannot reach the tray until someone names it
 // here.
 //
 // The chips are a control SURFACE only: selecting one calls back into the same
@@ -10,7 +10,8 @@
 // state is re-synced from controller state (never optimistically), so a failed
 // or superseded switch still leaves the truly-active stack lit.
 
-import { keySetupRequirement } from './keySetupCore.mjs';
+import { keySetupRequirementEnvVars } from './keySetupCore.mjs';
+import { t } from './i18n/index.js';
 
 export const MAP_STACK_CHIP_CLASS = 'map-stack-chip';
 export const PRESENTED_MAP_STACK_IDS = Object.freeze([
@@ -37,10 +38,17 @@ export function mapStackChipModel(stack, activeId) {
   const available = stack?.available !== false;
   const label = String(stack?.label ?? stack?.id ?? '');
   const requiresIon = stack?.requiresIon === true;
+  // Stack labels are provider names and stay English; the sentence translates.
   const fallbackReason = requiresIon
-    ? keySetupRequirement('cesium-ion')
-    : `${label || 'This map stack'} is unavailable`;
-  const unavailableHint = available ? '' : String(stack?.unavailableReason || fallbackReason);
+    ? t('Needs {envVars} — add it in Provider Settings', {
+        envVars: keySetupRequirementEnvVars('cesium-ion'),
+      })
+    : t('{label} is unavailable', {
+        label: label || t('This map stack'),
+      });
+  const unavailableHint = available
+    ? ''
+    : String(stack?.unavailableReason || fallbackReason);
   return {
     id: String(stack?.id ?? ''),
     label,
@@ -60,13 +68,13 @@ export function mapStackChipModel(stack, activeId) {
  * @param {Array<object>} stacks - `MapStackController.getStacks()` output.
  * @param {string|null} activeId - Currently active stack id.
  * @returns {Array<object>} One chip model per approved presentation id, in
- *   `PRESENTED_MAP_STACK_IDS` order; internal and future stacks stay hidden.
+ *   `PRESENTED_MAP_STACK_IDS` order; unlisted stacks stay outside this presentation.
  */
 export function mapStackChipModels(stacks, activeId) {
-  const stacksById = new Map((Array.isArray(stacks) ? stacks : [])
-    .map((stack) => [stack?.id, stack]));
-  return PRESENTED_MAP_STACK_IDS
-    .map((id) => stacksById.get(id))
+  const stacksById = new Map(
+    (Array.isArray(stacks) ? stacks : []).map((stack) => [stack?.id, stack]),
+  );
+  return PRESENTED_MAP_STACK_IDS.map((id) => stacksById.get(id))
     .filter(Boolean)
     .map((stack) => mapStackChipModel(stack, activeId));
 }
@@ -79,9 +87,20 @@ export function mapStackChipModels(stacks, activeId) {
  * @param {string|null} [options.activeId] - Currently active stack id.
  * @param {(stackId: string) => void} [options.onSelect] - Selection callback.
  * @param {Document} [options.doc] - Document override (tests).
+ * @param {(element: HTMLElement, type: string, listener: Function) => void} [options.bind] - Listener owner override.
  * @returns {Array<object>} The rendered chip models.
  */
-export function renderMapStackChips(container, stacks, { activeId = null, onSelect = null, doc } = {}) {
+export function renderMapStackChips(
+  container,
+  stacks,
+  {
+    activeId = null,
+    onSelect = null,
+    doc,
+    bind = (element, type, listener) =>
+      element.addEventListener(type, listener),
+  } = {},
+) {
   if (!container) return [];
   const ownerDoc = doc || container.ownerDocument || globalThis.document;
   if (!ownerDoc?.createElement) return [];
@@ -96,13 +115,21 @@ export function renderMapStackChips(container, stacks, { activeId = null, onSele
       MAP_STACK_CHIP_CLASS,
       model.active ? 'active' : '',
       model.available ? '' : 'unavailable',
-    ].filter(Boolean).join(' ');
+    ]
+      .filter(Boolean)
+      .join(' ');
     chip.dataset.stackId = model.id;
     chip.title = model.title;
     chip.setAttribute('aria-pressed', String(model.active));
     chip.setAttribute('aria-disabled', String(!model.available));
     if (!model.available) {
-      chip.setAttribute('aria-label', `${model.label} unavailable: ${model.unavailableHint}`);
+      chip.setAttribute(
+        'aria-label',
+        t('{label} unavailable: {hint}', {
+          label: model.label,
+          hint: model.unavailableHint,
+        }),
+      );
     }
 
     const label = ownerDoc.createElement('span');
@@ -117,7 +144,7 @@ export function renderMapStackChips(container, stacks, { activeId = null, onSele
       chip.appendChild(requirement);
     }
 
-    chip.addEventListener('click', () => {
+    bind(chip, 'click', () => {
       if (!model.available) return;
       onSelect?.(model.id);
     });

@@ -3,6 +3,9 @@ export const SPRITE_LAYER_ORDER = Object.freeze([
   'cctv',
   'firms',
   'bikeshare',
+  'transit',
+  'transit-motion',
+  'directions',
   'ais',
   'military',
   'flights',
@@ -45,7 +48,8 @@ export function restoreSpriteOrder(viewer) {
   if (!viewer || viewer.isDestroyed?.()) return;
   const scene = viewer.scene;
   const primitives = scene?.primitives;
-  if (!primitives || scene.isDestroyed?.() || primitives.isDestroyed?.()) return;
+  if (!primitives || scene.isDestroyed?.() || primitives.isDestroyed?.())
+    return;
 
   for (const layerId of SPRITE_LAYER_ORDER) {
     const collection = _collections.get(layerId);
@@ -69,6 +73,7 @@ export function restoreSpriteOrderOnEnable(
   viewer,
   restore = restoreSpriteOrder,
 ) {
-  if (!SPRITE_LAYER_ORDER.includes(layerId) || typeof restore !== 'function') return;
+  if (!SPRITE_LAYER_ORDER.includes(layerId) || typeof restore !== 'function')
+    return;
   restore(viewer);
 }

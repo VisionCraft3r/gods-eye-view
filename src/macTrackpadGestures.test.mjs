@@ -45,7 +45,7 @@ test('Safari pinch-out zooms in and pinch-in zooms out', () => {
 });
 
 test('the viewer installs Mac trackpad zoom and the Mac app disables page pinch-zoom', () => {
-  const main = readFileSync(new URL('./main.js', import.meta.url), 'utf8');
+  const main = readFileSync(new URL('./app/controls.js', import.meta.url), 'utf8');
   const desktop = readFileSync(new URL('../desktop/main.mjs', import.meta.url), 'utf8');
   assert.match(main, /installMacTrackpadGestures\(viewer\)/);
   assert.match(desktop, /setVisualZoomLevelLimits\(1, 1\)/);

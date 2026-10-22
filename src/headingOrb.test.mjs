@@ -42,10 +42,10 @@ test('dragging the orb sideways covers a full 360° turn', () => {
   assert.ok(full < 1e-9 || Math.abs(full - Math.PI * 2) < 1e-9);
 });
 
-test('the heading orb ships on the zoom rail and StyleManager installs it', () => {
-  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../style.css', import.meta.url), 'utf8');
-  const ui = readFileSync(new URL('./ui.js', import.meta.url), 'utf8');
+test('the heading orb ships on the zoom rail and controls install it', () => {
+  const html = readFileSync(new URL('./ui/templates/scene-chrome.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('./ui/styles/heading-orb.css', import.meta.url), 'utf8');
+  const ui = readFileSync(new URL('./app/controls.js', import.meta.url), 'utf8');
   const zoomBlock = html.slice(html.indexOf('id="zoom-slider"'), html.indexOf('id="top-center-actions"'));
   assert.match(zoomBlock, /id="camera-nav"/);
   assert.match(zoomBlock, /id="heading-orb-reset"/);
@@ -59,8 +59,7 @@ test('the heading orb ships on the zoom rail and StyleManager installs it', () =
   assert.match(css, /#heading-orb-reset/);
   assert.match(css, /#heading-orb-3d/);
   assert.match(css, /heading-orb-earth\.svg/);
-  assert.match(ui, /installHeadingOrb\(this\.viewer/);
-  assert.match(ui, /heading-orb-reset/);
+  assert.match(ui, /installHeadingOrb\(viewer/);
 });
 
 test('applying heading orbits around the look-at instead of spinning in place', () => {
