@@ -20,6 +20,7 @@ import {
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { getOpenSkyToken } from './aircraft/opensky.js';
+import { requiredFiniteQueryNumber } from './common/query.js';
 
 function gevDiskPath(subdir, key) {
   const safe = String(key).replace(/[^a-z0-9._-]+/gi, '_').slice(0, 180);
