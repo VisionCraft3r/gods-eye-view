@@ -1,5 +1,7 @@
 # Changelog
 
+- The Mac app loads again: its preview server serves `web-dist/`, where the packaged build actually is, instead of an empty `dist/` that returned 404.
+
 - Morocco place queries no longer crash the preview server: the bbox parser now uses the shared finite-number helper.
 
 - Merge upstream through 21 Oct 2026 (v0.2.1 and later) and keep the Morocco pack, ONCF rail trains, and the local Mac app. ONCF sprites still move at 10 Hz; the voice context snapshot refreshes about once a second, and the in-service trip list is cached per Casablanca minute.

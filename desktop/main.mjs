@@ -82,7 +82,7 @@ function startVite(node, { preview = false } = {}) {
   const logPath = path.join(app.getPath('userData'), preview ? 'vite-preview.log' : 'vite.log');
   const logFd = openSync(logPath, 'w');
   const args = preview
-    ? ['preview', '--host', HOST, '--port', String(PORT), '--strictPort']
+    ? ['preview', '--host', HOST, '--port', String(PORT), '--strictPort', '--outDir', 'web-dist']
     : ['--host', HOST, '--port', String(PORT), '--strictPort'];
   bootLog(`spawn vite mode=${preview ? 'preview' : 'dev'} node=${node} port=${PORT} log=${logPath}`);
   const t0 = Date.now();
